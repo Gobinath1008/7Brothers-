@@ -18,15 +18,31 @@ import {
   Navigation,
 } from 'lucide-react';
 
+function toLocalDatetimeInput(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 export default function AdminTournamentsPage() {
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Form State
+  // Create Form State
   const [form, setForm] = useState({
     name: '',
     tournamentDate: '',
@@ -38,6 +54,21 @@ export default function AdminTournamentsPage() {
     maxTeams: 16,
     matchDuration: 45,
     description: '',
+  });
+
+  // Edit Form State
+  const [editForm, setEditForm] = useState({
+    name: '',
+    tournamentDate: '',
+    regDeadline: '',
+    venue: '',
+    locationUrl: '',
+    playersPerTeam: 7,
+    oversPerMatch: 5,
+    maxTeams: 16,
+    matchDuration: 45,
+    description: '',
+    status: 'REGISTRATION_OPEN',
   });
 
   const loadTournaments = async () => {
@@ -93,6 +124,51 @@ export default function AdminTournamentsPage() {
     }
   };
 
+  const handleOpenEdit = (t) => {
+    setErrorMsg('');
+    setEditingId(t._id);
+    setEditForm({
+      name: t.name || '',
+      tournamentDate: toLocalDatetimeInput(t.tournamentDate),
+      regDeadline: toLocalDatetimeInput(t.regDeadline),
+      venue: t.venue || '',
+      locationUrl: t.locationUrl || '',
+      playersPerTeam: t.playersPerTeam || 7,
+      oversPerMatch: t.oversPerMatch || 5,
+      maxTeams: t.maxTeams || 16,
+      matchDuration: t.matchDuration || 45,
+      description: t.description || '',
+      status: t.status || 'REGISTRATION_OPEN',
+    });
+    setEditModalOpen(true);
+  };
+
+  const handleUpdateTournament = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+
+    if (new Date(editForm.regDeadline) >= new Date(editForm.tournamentDate)) {
+      setErrorMsg('Registration deadline must be before the tournament date and time.');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const res = await tournamentService.update(editingId, editForm);
+      if (res.success) {
+        setSuccessMsg(`Tournament "${editForm.name}" updated successfully! 🔥`);
+        setEditModalOpen(false);
+        setEditingId(null);
+        loadTournaments();
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'Error updating tournament');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleStatusChange = async (id, newStatus) => {
     try {
       await tournamentService.update(id, { status: newStatus });
@@ -124,7 +200,7 @@ export default function AdminTournamentsPage() {
             TOURNAMENT <span className="text-lime-400">MANAGEMENT</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Create, configure, open/close registrations, set Google Maps venue, and track tournaments
+            Create, edit, configure Google Maps location, open/close registrations, and track tournaments
           </p>
         </div>
 
@@ -236,6 +312,14 @@ export default function AdminTournamentsPage() {
 
                       <td className="py-4 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* EDIT TOURNAMENT BUTTON */}
+                          <button
+                            onClick={() => handleOpenEdit(t)}
+                            title="Edit Tournament Details"
+                            className="px-2.5 py-1.5 rounded-lg bg-lime-500/10 text-lime-400 hover:bg-lime-500/20 text-[11px] font-bold flex items-center gap-1 transition-colors"
+                          >
+                            <Edit className="w-3.5 h-3.5" /> Edit
+                          </button>
                           <Link
                             to={`/admin/registrations?tournament=${t._id}`}
                             title="Manage Registrations"
@@ -246,7 +330,7 @@ export default function AdminTournamentsPage() {
                           <Link
                             to={`/admin/fixtures?tournament=${t._id}`}
                             title="Manage Fixtures"
-                            className="px-2.5 py-1.5 rounded-lg bg-lime-500/10 text-lime-400 hover:bg-lime-500/20 text-[11px] font-bold"
+                            className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 text-[11px] font-bold"
                           >
                             Fixtures
                           </Link>
@@ -268,7 +352,7 @@ export default function AdminTournamentsPage() {
         )}
       </div>
 
-      {/* Create Tournament Modal */}
+      {/* CREATE TOURNAMENT MODAL */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="glass-panel w-full max-w-xl rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative my-8">
@@ -428,6 +512,193 @@ export default function AdminTournamentsPage() {
                   className="px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-sm disabled:opacity-50"
                 >
                   {submitting ? 'Creating...' : 'Create Tournament'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT TOURNAMENT MODAL */}
+      {editModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-panel w-full max-w-xl rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative my-8">
+            <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-800">
+              <h3 className="text-lg font-black text-white flex items-center gap-2">
+                <Edit className="w-5 h-5 text-lime-400" /> Edit Tournament Details
+              </h3>
+              <button
+                onClick={() => {
+                  setEditModalOpen(false);
+                  setEditingId(null);
+                }}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {errorMsg && (
+              <div className="mb-4 p-3 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-400" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateTournament} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Tournament Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-lime-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Tournament Date & Time *</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={editForm.tournamentDate}
+                    onChange={(e) => setEditForm({ ...editForm, tournamentDate: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-lime-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                    Registration Deadline (Must be before tournament) *
+                  </label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={editForm.regDeadline}
+                    onChange={(e) => setEditForm({ ...editForm, regDeadline: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-lime-500"
+                  />
+                  <span className="text-[10px] text-slate-400 block mt-1">
+                    Registration must close before the tournament starts.
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Venue / Ground Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.venue}
+                  onChange={(e) => setEditForm({ ...editForm, venue: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-lime-500"
+                />
+              </div>
+
+              {/* Google Maps Location URL */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1 flex items-center justify-between">
+                  <span>Google Maps Location Link (Click to open map)</span>
+                  <span className="text-[10px] text-lime-400 font-normal">Optional</span>
+                </label>
+                <div className="relative">
+                  <MapPin className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                  <input
+                    type="url"
+                    placeholder="https://maps.app.goo.gl/... or https://goo.gl/maps/..."
+                    value={editForm.locationUrl}
+                    onChange={(e) => setEditForm({ ...editForm, locationUrl: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-lime-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Players / Team *</label>
+                  <input
+                    type="number"
+                    min={4}
+                    max={15}
+                    required
+                    value={editForm.playersPerTeam}
+                    onChange={(e) => setEditForm({ ...editForm, playersPerTeam: Number(e.target.value) })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-lime-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Overs / Match *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    required
+                    value={editForm.oversPerMatch}
+                    onChange={(e) => setEditForm({ ...editForm, oversPerMatch: Number(e.target.value) })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-lime-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Max Teams</label>
+                  <input
+                    type="number"
+                    min={2}
+                    max={64}
+                    value={editForm.maxTeams}
+                    onChange={(e) => setEditForm({ ...editForm, maxTeams: Number(e.target.value) })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-lime-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2.5 text-xs font-bold text-lime-400 focus:outline-none"
+                  >
+                    <option value="REGISTRATION_OPEN">REG OPEN</option>
+                    <option value="REGISTRATION_CLOSED">REG CLOSED</option>
+                    <option value="FIXTURES_GENERATED">FIXTURES</option>
+                    <option value="ONGOING">ONGOING</option>
+                    <option value="COMPLETED">COMPLETED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Description / Rules (Optional)</label>
+                <textarea
+                  rows={2}
+                  placeholder="Special ground rules, shoes allowed, prize pool details..."
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-lime-500"
+                ></textarea>
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditModalOpen(false);
+                    setEditingId(null);
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {submitting ? 'Updating...' : 'Save & Update Tournament'}
                 </button>
               </div>
             </form>

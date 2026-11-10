@@ -1,5 +1,5 @@
 import connectToDatabase from '../../lib/db.js';
-import Tournament from '../../models/Tournament.js';
+import Tournament, { generateTournamentSlug } from '../../models/Tournament.js';
 import Team from '../../models/Team.js';
 import Match from '../../models/Match.js';
 import { authenticateAdmin } from '../../lib/auth.js';
@@ -89,18 +89,21 @@ export default async function handler(req, res) {
         });
       }
 
+      const slug = generateTournamentSlug(name);
+
       const tournament = await Tournament.create({
-        name,
+        name: name.trim(),
+        slug,
         tournamentDate: parsedTournamentDate,
         regDeadline: parsedRegDeadline,
-        venue,
+        venue: venue.trim(),
         locationUrl: locationUrl.trim(),
         playersPerTeam: Number(playersPerTeam),
         oversPerMatch: Number(oversPerMatch),
         format,
         maxTeams: Number(maxTeams),
         matchDuration: Number(matchDuration),
-        description,
+        description: description ? description.trim() : '',
         status: 'REGISTRATION_OPEN',
       });
 

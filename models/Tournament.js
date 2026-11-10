@@ -1,5 +1,14 @@
 import mongoose from 'mongoose';
 
+// Helper to generate URL-safe slugs
+export function generateTournamentSlug(name) {
+  const base = (name || 'tournament')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return `${base}-${Math.floor(1000 + Math.random() * 9000)}`;
+}
+
 const TournamentSchema = new mongoose.Schema(
   {
     name: {
@@ -11,6 +20,9 @@ const TournamentSchema = new mongoose.Schema(
       type: String,
       unique: true,
       index: true,
+      default: function () {
+        return generateTournamentSlug(this.name);
+      },
     },
     tournamentDate: {
       type: Date,
@@ -100,17 +112,7 @@ const TournamentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Auto slug generation before save (Mongoose 9 compatible: no next callback needed)
-TournamentSchema.pre('save', function () {
-  if (this.isModified('name') || !this.slug) {
-    this.slug =
-      this.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') +
-      '-' +
-      Math.floor(1000 + Math.random() * 9000);
-  }
-});
+// Clear any cached model in hot reload to prevent stale pre-hooks
+delete mongoose.models.Tournament;
 
 export default mongoose.models.Tournament || mongoose.model('Tournament', TournamentSchema);
