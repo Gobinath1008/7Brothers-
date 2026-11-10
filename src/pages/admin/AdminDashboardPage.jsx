@@ -13,6 +13,7 @@ import {
   Activity,
   CheckCircle,
   Flame,
+  ArrowUpRight,
 } from 'lucide-react';
 
 export default function AdminDashboardPage() {
@@ -48,12 +49,60 @@ export default function AdminDashboardPage() {
   const upcomingMatches = matches.filter((m) => m.status === 'UPCOMING');
 
   const stats = [
-    { label: 'Total Tournaments', value: tournaments.length, icon: Trophy, color: 'text-amber-400', bg: 'bg-amber-400/10' },
-    { label: 'Registered Teams', value: registrations.length, icon: Users, color: 'text-lime-400', bg: 'bg-lime-400/10' },
-    { label: 'Registered Players', value: totalPlayers, icon: TrendingUp, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-    { label: 'Live Matches', value: liveMatches.length, icon: Radio, color: 'text-red-400', bg: 'bg-red-400/10' },
-    { label: 'Upcoming Matches', value: upcomingMatches.length, icon: Calendar, color: 'text-sky-400', bg: 'bg-sky-400/10' },
-    { label: 'Completed Matches', value: completedMatches.length, icon: CheckCircle, color: 'text-purple-400', bg: 'bg-purple-400/10' },
+    {
+      label: 'Total Tournaments',
+      value: tournaments.length,
+      icon: Trophy,
+      color: 'text-amber-400',
+      bg: 'bg-amber-400/10',
+      link: '/admin/tournaments',
+      hint: 'Manage Tournaments',
+    },
+    {
+      label: 'Registered Teams',
+      value: registrations.length,
+      icon: Users,
+      color: 'text-lime-400',
+      bg: 'bg-lime-400/10',
+      link: '/admin/registrations',
+      hint: 'View Teams List',
+    },
+    {
+      label: 'Registered Players',
+      value: totalPlayers,
+      icon: TrendingUp,
+      color: 'text-emerald-400',
+      bg: 'bg-emerald-400/10',
+      link: '/admin/registrations',
+      hint: 'View Player Squads',
+    },
+    {
+      label: 'Live Matches',
+      value: liveMatches.length,
+      icon: Radio,
+      color: 'text-red-400',
+      bg: 'bg-red-400/10',
+      link: liveMatches.length > 0 ? `/admin/scoring?match=${liveMatches[0]._id}` : '/admin/scoring',
+      hint: liveMatches.length > 0 ? 'Score Live Now' : 'Scorer Console',
+    },
+    {
+      label: 'Upcoming Matches',
+      value: upcomingMatches.length,
+      icon: Calendar,
+      color: 'text-sky-400',
+      bg: 'bg-sky-400/10',
+      link: '/admin/fixtures',
+      hint: 'View Schedule',
+    },
+    {
+      label: 'Completed Matches',
+      value: completedMatches.length,
+      icon: CheckCircle,
+      color: 'text-purple-400',
+      bg: 'bg-purple-400/10',
+      link: '/admin/fixtures',
+      hint: 'View Results',
+    },
   ];
 
   return (
@@ -65,7 +114,7 @@ export default function AdminDashboardPage() {
             TOURNAMENT CONTROL <span className="text-lime-400">CENTER</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Real-time management for Box Cricket Tournaments, Fixtures & Scoring
+            Real-time management for Box Cricket Tournaments, Fixtures & Scoring (Click any card to open)
           </p>
         </div>
 
@@ -86,20 +135,38 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Statistics Cards Grid */}
+      {/* Statistics Cards Grid - Clickable Links */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {stats.map((s, idx) => {
           const Icon = s.icon;
           return (
-            <div key={idx} className="glass-panel p-4 rounded-2xl border border-slate-800">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{s.label}</span>
-                <div className={`w-7 h-7 rounded-lg ${s.bg} ${s.color} flex items-center justify-center`}>
-                  <Icon className="w-3.5 h-3.5" />
+            <Link
+              key={idx}
+              to={s.link}
+              className="glass-panel p-4 rounded-2xl border border-slate-800 hover:border-lime-500/50 hover:bg-slate-900/90 active:scale-[0.98] transition-all group flex flex-col justify-between block relative overflow-hidden shadow-sm hover:shadow-lg hover:shadow-lime-500/5 cursor-pointer"
+              title={`Click to open ${s.label}`}
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider group-hover:text-white transition-colors">
+                    {s.label}
+                  </span>
+                  <div
+                    className={`w-7 h-7 rounded-lg ${s.bg} ${s.color} flex items-center justify-center group-hover:scale-110 transition-transform`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <div className="font-mono text-2xl font-black text-white group-hover:text-lime-400 transition-colors">
+                  {loading ? '-' : s.value}
                 </div>
               </div>
-              <div className="font-mono text-2xl font-black text-white">{loading ? '-' : s.value}</div>
-            </div>
+
+              <div className="mt-3 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] font-bold text-slate-500 group-hover:text-lime-400 transition-colors">
+                <span>{s.hint}</span>
+                <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </Link>
           );
         })}
       </div>
@@ -134,12 +201,16 @@ export default function AdminDashboardPage() {
           ) : (
             <div className="space-y-2.5">
               {registrations.slice(0, 5).map((r) => (
-                <div
+                <Link
                   key={r._id}
-                  className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between text-xs"
+                  to={`/admin/registrations`}
+                  className="p-3 rounded-xl bg-slate-900/60 hover:bg-slate-900 border border-slate-800/80 hover:border-lime-500/40 flex items-center justify-between text-xs transition-all group block cursor-pointer"
                 >
                   <div>
-                    <div className="font-bold text-white">{r.name}</div>
+                    <div className="font-bold text-white group-hover:text-lime-400 transition-colors flex items-center gap-1.5">
+                      <span>{r.name}</span>
+                      <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity text-lime-400" />
+                    </div>
                     <div className="text-[11px] text-slate-400">
                       Capt: {r.captainName} ({r.captainPhone}) • {r.players?.length || 0} Players
                     </div>
@@ -150,7 +221,7 @@ export default function AdminDashboardPage() {
                       {new Date(r.createdAt).toLocaleDateString('en-IN')}
                     </span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -209,18 +280,21 @@ export default function AdminDashboardPage() {
                       {isLive ? (
                         <Link
                           to={`/admin/scoring?match=${m._id}`}
-                          className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase bg-red-500 text-white shadow-sm flex items-center gap-1"
+                          className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase bg-red-500 text-white shadow-sm flex items-center gap-1 hover:bg-red-600 transition-colors"
                         >
                           <Radio className="w-3 h-3" /> Score Now
                         </Link>
                       ) : m.status === 'COMPLETED' ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold text-lime-400 bg-lime-500/10">
-                          Finished
-                        </span>
+                        <Link
+                          to={`/matches/${m._id}`}
+                          className="px-2 py-0.5 rounded text-[10px] font-bold text-lime-400 bg-lime-500/10 hover:bg-lime-500/20 transition-colors"
+                        >
+                          Finished (Scorecard)
+                        </Link>
                       ) : (
                         <Link
                           to={`/admin/scoring?match=${m._id}`}
-                          className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800 hover:bg-slate-750 text-slate-300"
+                          className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white transition-colors"
                         >
                           Start Match
                         </Link>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { tournamentService, registrationService, matchService } from '../../services/api';
 import { downloadAllRegistrationsPdf, downloadFixturesPdf, downloadTeamRegistrationPdf } from '../../utils/exportPdf';
 import { downloadRegistrationsCsv, downloadFixturesCsv } from '../../utils/exportCsv';
@@ -96,24 +97,52 @@ export default function AdminReportsPage() {
 
       {/* Summary Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass-panel p-4 rounded-2xl border border-slate-800">
-          <span className="text-[10px] font-extrabold uppercase text-slate-400 block mb-1">Total Teams</span>
+        <Link
+          to={`/admin/registrations${selectedTournamentId ? `?tournament=${selectedTournamentId}` : ''}`}
+          className="glass-panel p-4 rounded-2xl border border-slate-800 hover:border-lime-500/50 hover:bg-slate-900/80 transition-all cursor-pointer block group"
+          title="Click to view registrations"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-extrabold uppercase text-slate-400 group-hover:text-lime-400 block mb-1">Total Teams</span>
+            <span className="text-[10px] text-slate-500 group-hover:text-lime-400">View →</span>
+          </div>
           <div className="font-mono text-2xl font-black text-white">{registrations.length}</div>
-        </div>
-        <div className="glass-panel p-4 rounded-2xl border border-slate-800">
-          <span className="text-[10px] font-extrabold uppercase text-slate-400 block mb-1">Total Players</span>
+        </Link>
+        <Link
+          to={`/admin/registrations${selectedTournamentId ? `?tournament=${selectedTournamentId}` : ''}`}
+          className="glass-panel p-4 rounded-2xl border border-slate-800 hover:border-lime-500/50 hover:bg-slate-900/80 transition-all cursor-pointer block group"
+          title="Click to view squads"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-extrabold uppercase text-slate-400 group-hover:text-lime-400 block mb-1">Total Players</span>
+            <span className="text-[10px] text-slate-500 group-hover:text-lime-400">View →</span>
+          </div>
           <div className="font-mono text-2xl font-black text-lime-400">{totalPlayers}</div>
-        </div>
-        <div className="glass-panel p-4 rounded-2xl border border-slate-800">
-          <span className="text-[10px] font-extrabold uppercase text-slate-400 block mb-1">Total Matches</span>
+        </Link>
+        <Link
+          to={`/admin/fixtures${selectedTournamentId ? `?tournament=${selectedTournamentId}` : ''}`}
+          className="glass-panel p-4 rounded-2xl border border-slate-800 hover:border-lime-500/50 hover:bg-slate-900/80 transition-all cursor-pointer block group"
+          title="Click to view matches"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-extrabold uppercase text-slate-400 group-hover:text-lime-400 block mb-1">Total Matches</span>
+            <span className="text-[10px] text-slate-500 group-hover:text-lime-400">View →</span>
+          </div>
           <div className="font-mono text-2xl font-black text-white">{matches.length}</div>
-        </div>
-        <div className="glass-panel p-4 rounded-2xl border border-slate-800">
-          <span className="text-[10px] font-extrabold uppercase text-slate-400 block mb-1">Finished Matches</span>
+        </Link>
+        <Link
+          to={`/admin/fixtures${selectedTournamentId ? `?tournament=${selectedTournamentId}` : ''}`}
+          className="glass-panel p-4 rounded-2xl border border-slate-800 hover:border-lime-500/50 hover:bg-slate-900/80 transition-all cursor-pointer block group"
+          title="Click to view finished matches"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-extrabold uppercase text-slate-400 group-hover:text-lime-400 block mb-1">Finished Matches</span>
+            <span className="text-[10px] text-slate-500 group-hover:text-lime-400">View →</span>
+          </div>
           <div className="font-mono text-2xl font-black text-emerald-400">
             {matches.filter((m) => m.status === 'COMPLETED').length}
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Download Action Cards */}
