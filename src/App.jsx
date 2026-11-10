@@ -21,6 +21,7 @@ import AdminTournamentsPage from './pages/admin/AdminTournamentsPage';
 import AdminRegistrationsPage from './pages/admin/AdminRegistrationsPage';
 import AdminFixturesPage from './pages/admin/AdminFixturesPage';
 import AdminLiveScoringPage from './pages/admin/AdminLiveScoringPage';
+import AdminMatchScoresPage from './pages/admin/AdminMatchScoresPage';
 import AdminReportsPage from './pages/admin/AdminReportsPage';
 
 export default function App() {
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="registrations" element={<AdminRegistrationsPage />} />
           <Route path="fixtures" element={<AdminFixturesPage />} />
           <Route path="scoring" element={<AdminLiveScoringPage />} />
+          <Route path="scores" element={<AdminMatchScoresPage />} />
           <Route path="reports" element={<AdminReportsPage />} />
         </Route>
 

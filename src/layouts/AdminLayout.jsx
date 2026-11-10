@@ -8,6 +8,7 @@ import {
   Calendar,
   Radio,
   FileText,
+  BarChart3,
   LogOut,
   Menu,
   X,
@@ -41,6 +42,7 @@ export default function AdminLayout() {
     { name: 'Tournaments', path: '/admin/tournaments', icon: Trophy },
     { name: 'Registrations', path: '/admin/registrations', icon: Users },
     { name: 'Match Fixtures', path: '/admin/fixtures', icon: Calendar },
+    { name: 'Match Scores', path: '/admin/scores', icon: BarChart3 },
     { name: 'Live Scoring', path: '/admin/scoring', icon: Radio },
     { name: 'Reports & Exports', path: '/admin/reports', icon: FileText },
   ];

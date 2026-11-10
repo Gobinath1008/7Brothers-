@@ -100,8 +100,8 @@ export default function AdminDashboardPage() {
       icon: CheckCircle,
       color: 'text-purple-400',
       bg: 'bg-purple-400/10',
-      link: '/admin/fixtures',
-      hint: 'View Results',
+      link: '/admin/scores',
+      hint: 'View Match Scores',
     },
   ];
 
@@ -125,6 +125,12 @@ export default function AdminDashboardPage() {
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-sm"
           >
             <PlusCircle className="w-4 h-4" /> New Tournament
+          </Link>
+          <Link
+            to="/admin/scores"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-slate-800 hover:bg-slate-750 border border-slate-700 transition-colors"
+          >
+            <Trophy className="w-4 h-4 text-lime-400" /> Match Scores
           </Link>
           <Link
             to="/admin/scoring"

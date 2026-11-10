@@ -477,6 +477,14 @@ export default function AdminLiveScoringPage() {
         </select>
 
         <div className="flex items-center gap-1.5 flex-shrink-0">
+          <Link
+            to="/admin/scores"
+            title="View All Existing Match Scores"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white text-[11px] font-bold transition-colors"
+          >
+            <Trophy className="w-3.5 h-3.5 text-lime-400" /> All Scores
+          </Link>
+
           <button
             onClick={() => setQuickScoreModalOpen(true)}
             title="Edit Match Score Directly"
