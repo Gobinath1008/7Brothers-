@@ -627,8 +627,8 @@ export default function AdminLiveScoringPage() {
 
       {/* Toss Modal */}
       {tossModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel w-full max-w-sm rounded-3xl p-6 border border-slate-800 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-panel w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-3xl p-6 border border-slate-800 shadow-2xl">
             <h3 className="text-base font-black text-white mb-1 flex items-center gap-2">
               <Shield className="w-5 h-5 text-lime-400" /> Match Toss Setup
             </h3>
@@ -685,8 +685,8 @@ export default function AdminLiveScoringPage() {
 
       {/* Wicket Modal */}
       {wicketModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel w-full max-w-sm rounded-3xl p-6 border border-slate-800 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-panel w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-3xl p-6 border border-slate-800 shadow-2xl">
             <h3 className="text-base font-black text-red-400 mb-1 flex items-center gap-2">
               🚨 Wicket Fall Recording
             </h3>

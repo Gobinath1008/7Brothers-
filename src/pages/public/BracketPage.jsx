@@ -148,6 +148,11 @@ export default function BracketPage() {
         </div>
       )}
 
+      {/* Mobile Swipe Hint */}
+      <div className="md:hidden flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] font-bold text-lime-400 text-center">
+        <span>👈 Swipe horizontally to view full knockout tournament tree 👉</span>
+      </div>
+
       {/* Bracket Tree Container */}
       {loading ? (
         <div className="py-20 text-center">

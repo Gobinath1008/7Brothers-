@@ -3,7 +3,7 @@ import Tournament from '../../models/Tournament.js';
 import Team from '../../models/Team.js';
 import { authenticateAdmin } from '../../lib/auth.js';
 
-export default async function handler(req, res) {
+export async function handleTeamsConfirm(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
@@ -25,7 +25,6 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, message: 'Tournament not found' });
     }
 
-    // Ensure registration is closed before confirming final team list
     if (tournament.status === 'REGISTRATION_OPEN') {
       tournament.status = 'REGISTRATION_CLOSED';
     }
@@ -35,7 +34,6 @@ export default async function handler(req, res) {
       teamFilter._id = { $in: confirmedTeamIds };
     }
 
-    // Update teams to CONFIRMED
     await Team.updateMany(teamFilter, { status: 'CONFIRMED' });
 
     tournament.finalTeamsConfirmed = true;

@@ -5,7 +5,7 @@ import Player from '../../models/Player.js';
 import Match from '../../models/Match.js';
 import { authenticateAdmin } from '../../lib/auth.js';
 
-export default async function handler(req, res) {
+export async function handleExportsData(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     const adminUser = await authenticateAdmin(req, res);
     if (!adminUser) return;
 
-    const { tournamentId, type = 'registrations' } = req.query;
+    const { tournamentId, type = 'registrations' } = req.query || {};
 
     if (!tournamentId) {
       return res.status(400).json({ success: false, message: 'Tournament ID is required' });

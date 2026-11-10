@@ -235,119 +235,216 @@ export default function AdminTournamentsPage() {
             <p className="text-xs text-slate-400 mb-4">Click "Create Tournament" to launch your first Box Cricket league.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-800 bg-slate-900/80 text-slate-400 font-bold uppercase text-[10px]">
-                  <th className="py-3 px-4">Tournament Name</th>
-                  <th className="py-3 px-4">Date & Venue (Map)</th>
-                  <th className="py-3 px-4">Registration Deadline</th>
-                  <th className="py-3 px-4">Format / Rules</th>
-                  <th className="py-3 px-4">Teams / Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {tournaments.map((t) => {
-                  const isPastDeadline = new Date(t.regDeadline) < new Date();
-                  return (
-                    <tr key={t._id} className="hover:bg-slate-900/40 transition-colors">
-                      <td className="py-4 px-4 font-bold text-white">
-                        <div className="text-sm">{t.name}</div>
-                        <div className="text-[11px] text-slate-500 font-mono">ID: {t._id.slice(-6)}</div>
-                      </td>
+          <div>
+            {/* Mobile Cards View (Phones & Small Tablets) */}
+            <div className="block md:hidden divide-y divide-slate-800/80">
+              {tournaments.map((t) => {
+                const isPastDeadline = new Date(t.regDeadline) < new Date();
+                return (
+                  <div key={t._id} className="p-4 space-y-3 hover:bg-slate-900/30 transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="text-sm font-black text-white">{t.name}</h4>
+                        <span className="text-[10px] text-slate-500 font-mono">ID: {t._id.slice(-6)}</span>
+                      </div>
+                      <select
+                        value={t.status}
+                        onChange={(e) => handleStatusChange(t._id, e.target.value)}
+                        className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[10px] font-bold text-lime-400 focus:outline-none"
+                      >
+                        <option value="REGISTRATION_OPEN">REG OPEN</option>
+                        <option value="REGISTRATION_CLOSED">REG CLOSED</option>
+                        <option value="FIXTURES_GENERATED">FIXTURES</option>
+                        <option value="ONGOING">ONGOING</option>
+                        <option value="COMPLETED">COMPLETED</option>
+                        <option value="CANCELLED">CANCELLED</option>
+                      </select>
+                    </div>
 
-                      <td className="py-4 px-4 text-slate-300">
-                        <div>{new Date(t.tournamentDate).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</div>
-                        {t.locationUrl ? (
+                    <div className="grid grid-cols-2 gap-2 text-[11px] bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/60">
+                      <div>
+                        <span className="text-slate-500 uppercase text-[9px] font-bold block">Tournament Date</span>
+                        <span className="font-semibold text-slate-200">
+                          {new Date(t.tournamentDate).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 uppercase text-[9px] font-bold block">Reg Deadline</span>
+                        <span className={`font-semibold ${isPastDeadline ? 'text-red-400' : 'text-slate-200'}`}>
+                          {new Date(t.regDeadline).toLocaleDateString('en-IN', { dateStyle: 'short' })}
+                        </span>
+                      </div>
+                      <div className="col-span-2 flex items-center justify-between pt-1 border-t border-slate-800/40">
+                        <div className="flex items-center gap-1 text-slate-300">
+                          <MapPin className="w-3 h-3 text-lime-400 flex-shrink-0" />
+                          <span className="truncate">{t.venue}</span>
+                        </div>
+                        {t.locationUrl && (
                           <a
                             href={t.locationUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-lime-400 hover:underline flex items-center gap-1 mt-0.5 font-bold text-[11px] transition-colors"
-                            title="Click to open in Google Maps"
+                            className="text-lime-400 hover:underline flex items-center gap-1 font-bold text-[10px] flex-shrink-0"
                           >
-                            <MapPin className="w-3 h-3 text-lime-400" />
-                            <span>{t.venue}</span>
-                            <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
+                            <span>Map</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
                           </a>
-                        ) : (
-                          <div className="text-slate-400 flex items-center gap-1 mt-0.5">
-                            <MapPin className="w-3 h-3 text-slate-500" /> {t.venue}
-                          </div>
                         )}
-                      </td>
+                      </div>
+                    </div>
 
-                      <td className="py-4 px-4">
-                        <div className={isPastDeadline ? 'text-red-400 font-semibold' : 'text-slate-300'}>
-                          {new Date(t.regDeadline).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
-                        </div>
-                        <span className="text-[10px] text-slate-500">
-                          {isPastDeadline ? '(Deadline passed)' : '(Active)'}
-                        </span>
-                      </td>
+                    <div className="flex items-center justify-between text-[11px] text-slate-400">
+                      <span>{t.registeredTeamsCount || 0} / {t.maxTeams} Teams Registered</span>
+                      <span className="font-mono text-lime-400">{t.oversPerMatch} Ov • {t.playersPerTeam} P</span>
+                    </div>
 
-                      <td className="py-4 px-4 text-slate-300 font-mono">
-                        <div>{t.oversPerMatch} Overs | {t.playersPerTeam} Players</div>
-                        <div className="text-[10px] text-slate-500 uppercase font-sans font-bold">Knockout</div>
-                      </td>
+                    {/* Touch Friendly Action Buttons */}
+                    <div className="grid grid-cols-4 gap-1.5 pt-1">
+                      <button
+                        onClick={() => handleOpenEdit(t)}
+                        className="py-2 px-2 rounded-xl bg-lime-500/15 text-lime-400 font-bold text-xs flex items-center justify-center gap-1"
+                      >
+                        <Edit className="w-3.5 h-3.5" /> Edit
+                      </button>
+                      <Link
+                        to={`/admin/registrations?tournament=${t._id}`}
+                        className="py-2 px-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white font-bold text-xs flex items-center justify-center"
+                      >
+                        Teams
+                      </Link>
+                      <Link
+                        to={`/admin/fixtures?tournament=${t._id}`}
+                        className="py-2 px-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white font-bold text-xs flex items-center justify-center"
+                      >
+                        Fixtures
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(t._id, t.name)}
+                        className="py-2 px-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 font-bold text-xs flex items-center justify-center"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-                      <td className="py-4 px-4">
-                        <div className="font-bold text-white mb-1">
-                          {t.registeredTeamsCount || 0} / {t.maxTeams} Teams
-                        </div>
-                        <select
-                          value={t.status}
-                          onChange={(e) => handleStatusChange(t._id, e.target.value)}
-                          className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[11px] font-bold text-lime-400 focus:outline-none"
-                        >
-                          <option value="REGISTRATION_OPEN">REGISTRATION OPEN</option>
-                          <option value="REGISTRATION_CLOSED">REGISTRATION CLOSED</option>
-                          <option value="FIXTURES_GENERATED">FIXTURES GENERATED</option>
-                          <option value="ONGOING">ONGOING</option>
-                          <option value="COMPLETED">COMPLETED</option>
-                          <option value="CANCELLED">CANCELLED</option>
-                        </select>
-                      </td>
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-slate-900/80 text-slate-400 font-bold uppercase text-[10px]">
+                    <th className="py-3 px-4">Tournament Name</th>
+                    <th className="py-3 px-4">Date & Venue (Map)</th>
+                    <th className="py-3 px-4">Registration Deadline</th>
+                    <th className="py-3 px-4">Format / Rules</th>
+                    <th className="py-3 px-4">Teams / Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {tournaments.map((t) => {
+                    const isPastDeadline = new Date(t.regDeadline) < new Date();
+                    return (
+                      <tr key={t._id} className="hover:bg-slate-900/40 transition-colors">
+                        <td className="py-4 px-4 font-bold text-white">
+                          <div className="text-sm">{t.name}</div>
+                          <div className="text-[11px] text-slate-500 font-mono">ID: {t._id.slice(-6)}</div>
+                        </td>
 
-                      <td className="py-4 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* EDIT TOURNAMENT BUTTON */}
-                          <button
-                            onClick={() => handleOpenEdit(t)}
-                            title="Edit Tournament Details"
-                            className="px-2.5 py-1.5 rounded-lg bg-lime-500/10 text-lime-400 hover:bg-lime-500/20 text-[11px] font-bold flex items-center gap-1 transition-colors"
+                        <td className="py-4 px-4 text-slate-300">
+                          <div>{new Date(t.tournamentDate).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</div>
+                          {t.locationUrl ? (
+                            <a
+                              href={t.locationUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-lime-400 hover:underline flex items-center gap-1 mt-0.5 font-bold text-[11px] transition-colors"
+                              title="Click to open in Google Maps"
+                            >
+                              <MapPin className="w-3 h-3 text-lime-400" />
+                              <span>{t.venue}</span>
+                              <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
+                            </a>
+                          ) : (
+                            <div className="text-slate-400 flex items-center gap-1 mt-0.5">
+                              <MapPin className="w-3 h-3 text-slate-500" /> {t.venue}
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="py-4 px-4">
+                          <div className={isPastDeadline ? 'text-red-400 font-semibold' : 'text-slate-300'}>
+                            {new Date(t.regDeadline).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                          </div>
+                          <span className="text-[10px] text-slate-500">
+                            {isPastDeadline ? '(Deadline passed)' : '(Active)'}
+                          </span>
+                        </td>
+
+                        <td className="py-4 px-4 text-slate-300 font-mono">
+                          <div>{t.oversPerMatch} Overs | {t.playersPerTeam} Players</div>
+                          <div className="text-[10px] text-slate-500 uppercase font-sans font-bold">Knockout</div>
+                        </td>
+
+                        <td className="py-4 px-4">
+                          <div className="font-bold text-white mb-1">
+                            {t.registeredTeamsCount || 0} / {t.maxTeams} Teams
+                          </div>
+                          <select
+                            value={t.status}
+                            onChange={(e) => handleStatusChange(t._id, e.target.value)}
+                            className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-[11px] font-bold text-lime-400 focus:outline-none"
                           >
-                            <Edit className="w-3.5 h-3.5" /> Edit
-                          </button>
-                          <Link
-                            to={`/admin/registrations?tournament=${t._id}`}
-                            title="Manage Registrations"
-                            className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 text-[11px] font-bold"
-                          >
-                            Registrations
-                          </Link>
-                          <Link
-                            to={`/admin/fixtures?tournament=${t._id}`}
-                            title="Manage Fixtures"
-                            className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 text-[11px] font-bold"
-                          >
-                            Fixtures
-                          </Link>
-                          <button
-                            onClick={() => handleDelete(t._id, t.name)}
-                            title="Delete Tournament"
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                            <option value="REGISTRATION_OPEN">REGISTRATION OPEN</option>
+                            <option value="REGISTRATION_CLOSED">REGISTRATION CLOSED</option>
+                            <option value="FIXTURES_GENERATED">FIXTURES GENERATED</option>
+                            <option value="ONGOING">ONGOING</option>
+                            <option value="COMPLETED">COMPLETED</option>
+                            <option value="CANCELLED">CANCELLED</option>
+                          </select>
+                        </td>
+
+                        <td className="py-4 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* EDIT TOURNAMENT BUTTON */}
+                            <button
+                              onClick={() => handleOpenEdit(t)}
+                              title="Edit Tournament Details"
+                              className="px-2.5 py-1.5 rounded-lg bg-lime-500/10 text-lime-400 hover:bg-lime-500/20 text-[11px] font-bold flex items-center gap-1 transition-colors"
+                            >
+                              <Edit className="w-3.5 h-3.5" /> Edit
+                            </button>
+                            <Link
+                              to={`/admin/registrations?tournament=${t._id}`}
+                              title="Manage Registrations"
+                              className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 text-[11px] font-bold"
+                            >
+                              Registrations
+                            </Link>
+                            <Link
+                              to={`/admin/fixtures?tournament=${t._id}`}
+                              title="Manage Fixtures"
+                              className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 text-[11px] font-bold"
+                            >
+                              Fixtures
+                            </Link>
+                            <button
+                              onClick={() => handleDelete(t._id, t.name)}
+                              title="Delete Tournament"
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
@@ -355,7 +452,7 @@ export default function AdminTournamentsPage() {
       {/* CREATE TOURNAMENT MODAL */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="glass-panel w-full max-w-xl rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative my-8">
+          <div className="glass-panel w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative my-8">
             <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-800">
               <h3 className="text-lg font-black text-white flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-lime-400" /> Create New Tournament
@@ -522,7 +619,7 @@ export default function AdminTournamentsPage() {
       {/* EDIT TOURNAMENT MODAL */}
       {editModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="glass-panel w-full max-w-xl rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative my-8">
+          <div className="glass-panel w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative my-8">
             <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-800">
               <h3 className="text-lg font-black text-white flex items-center gap-2">
                 <Edit className="w-5 h-5 text-lime-400" /> Edit Tournament Details

@@ -4,7 +4,6 @@ import Team from '../../models/Team.js';
 import Player from '../../models/Player.js';
 import { authenticateAdmin } from '../../lib/auth.js';
 
-// Normalize phone numbers (strips country codes like +91 if 12/13 digits, removes non-digits)
 function normalizePhone(phone) {
   if (!phone) return '';
   let cleaned = String(phone).replace(/\D/g, '');
@@ -14,7 +13,7 @@ function normalizePhone(phone) {
   return cleaned;
 }
 
-export default async function handler(req, res) {
+export async function handleRegistrations(req, res) {
   await connectToDatabase();
 
   // POST: Public Guest Team Registration
@@ -36,7 +35,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // 1. Fetch Tournament & Verify Registration Status & Deadline
       const tournament = await Tournament.findById(tournamentId);
       if (!tournament) {
         return res.status(404).json({ success: false, message: 'Tournament not found' });
@@ -54,7 +52,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // Check max teams limit
       const currentCount = await Team.countDocuments({ tournament: tournament._id });
       if (currentCount >= tournament.maxTeams) {
         return res.status(400).json({
@@ -63,7 +60,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // 2. Validate Player count
       const requiredPlayers = tournament.playersPerTeam || 7;
       if (!Array.isArray(players) || players.length !== requiredPlayers) {
         return res.status(400).json({
@@ -82,8 +78,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // 3. Duplicate checks within this tournament
-      // Check duplicate Team Name
       const existingTeamName = await Team.findOne({
         tournament: tournament._id,
         normalizedName: normalizedTeamName,
@@ -95,7 +89,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // Check duplicate Captain Phone
       const existingCaptain = await Team.findOne({
         tournament: tournament._id,
         captainPhone: normalizedCaptainPhone,
@@ -107,7 +100,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // 4. Validate Players and check for duplicate phone numbers
       const normalizedPlayerPhones = new Set();
       const playersToCreate = [];
 
@@ -128,7 +120,6 @@ export default async function handler(req, res) {
           });
         }
 
-        // Check duplicates within the same submission
         if (normalizedPlayerPhones.has(pPhone)) {
           return res.status(400).json({
             success: false,
@@ -137,7 +128,6 @@ export default async function handler(req, res) {
         }
         normalizedPlayerPhones.add(pPhone);
 
-        // Check if player is already registered in any team for this tournament
         const existingPlayer = await Player.findOne({
           tournament: tournament._id,
           phone: pPhone,
@@ -157,11 +147,9 @@ export default async function handler(req, res) {
         });
       }
 
-      // 5. Generate unique Registration ID
       const randomPart = Math.floor(1000 + Math.random() * 9000);
       const registrationId = `REG-${Date.now().toString().slice(-6)}-${randomPart}`;
 
-      // 6. Save Team
       const team = await Team.create({
         tournament: tournament._id,
         name: teamName.trim(),
@@ -173,7 +161,6 @@ export default async function handler(req, res) {
         status: 'REGISTERED',
       });
 
-      // 7. Save Players associated with team
       const playerDocs = playersToCreate.map((p) => ({
         tournament: tournament._id,
         team: team._id,
@@ -199,7 +186,6 @@ export default async function handler(req, res) {
       });
     } catch (error) {
       console.error('Registration error:', error);
-      // Catch MongoDB unique index violations
       if (error.code === 11000) {
         if (error.keyPattern?.normalizedName) {
           return res.status(400).json({
@@ -224,7 +210,7 @@ export default async function handler(req, res) {
       const adminUser = await authenticateAdmin(req, res);
       if (!adminUser) return;
 
-      const { tournamentId, search } = req.query;
+      const { tournamentId, search } = req.query || {};
 
       const filter = {};
       if (tournamentId) {
@@ -240,7 +226,6 @@ export default async function handler(req, res) {
         .populate('tournament', 'name tournamentDate venue status regDeadline')
         .sort({ createdAt: -1 });
 
-      // Attach players to each team
       const registrations = await Promise.all(
         teams.map(async (team) => {
           const players = await Player.find({ team: team._id }).sort({ isCaptain: -1, createdAt: 1 });
@@ -254,6 +239,89 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, count: registrations.length, registrations });
     } catch (error) {
       return res.status(500).json({ success: false, message: error.message || 'Error fetching registrations' });
+    }
+  }
+
+  return res.status(405).json({ success: false, message: 'Method not allowed' });
+}
+
+export async function handleRegistrationDetail(req, res, id) {
+  await connectToDatabase();
+
+  const adminUser = await authenticateAdmin(req, res);
+  if (!adminUser) return;
+
+  if (!id) {
+    return res.status(400).json({ success: false, message: 'Registration ID is required' });
+  }
+
+  const query = id.startsWith('REG-') ? { registrationId: id } : { _id: id };
+
+  if (req.method === 'GET') {
+    try {
+      const team = await Team.findOne(query).populate('tournament');
+      if (!team) {
+        return res.status(404).json({ success: false, message: 'Registration not found' });
+      }
+
+      const players = await Player.find({ team: team._id }).sort({ isCaptain: -1 });
+
+      return res.status(200).json({
+        success: true,
+        registration: {
+          ...team.toObject(),
+          players,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message || 'Error fetching registration' });
+    }
+  }
+
+  if (req.method === 'PUT') {
+    try {
+      const { name, captainName, captainPhone, status } = req.body || {};
+      const team = await Team.findOne(query);
+      if (!team) {
+        return res.status(404).json({ success: false, message: 'Registration not found' });
+      }
+
+      if (name) {
+        team.name = name.trim();
+        team.normalizedName = name.trim().toLowerCase();
+      }
+      if (captainName) team.captainName = captainName.trim();
+      if (captainPhone) team.captainPhone = captainPhone.trim();
+      if (status) team.status = status;
+
+      await team.save();
+
+      return res.status(200).json({
+        success: true,
+        message: 'Registration updated successfully',
+        team,
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message || 'Error updating registration' });
+    }
+  }
+
+  if (req.method === 'DELETE') {
+    try {
+      const team = await Team.findOne(query);
+      if (!team) {
+        return res.status(404).json({ success: false, message: 'Registration not found' });
+      }
+
+      await Player.deleteMany({ team: team._id });
+      await Team.findByIdAndDelete(team._id);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Registration deleted successfully',
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message || 'Error deleting registration' });
     }
   }
 

@@ -235,84 +235,151 @@ export default function AdminFixturesPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-800 bg-slate-900/80 text-slate-400 font-bold uppercase text-[10px]">
-                    <th className="py-3 px-4">Match</th>
-                    <th className="py-3 px-4">Stage / Round</th>
-                    <th className="py-3 px-4">Team A</th>
-                    <th className="py-3 px-4">Team B</th>
-                    <th className="py-3 px-4">Venue & Time</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4">Winner</th>
-                    <th className="py-3 px-4 text-right">Scorer Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {matches.map((m) => {
-                    const isLive = m.status === 'LIVE';
-                    return (
-                      <tr key={m._id} className="hover:bg-slate-900/40 transition-colors">
-                        <td className="py-3.5 px-4 font-mono font-bold text-white">
-                          #{m.matchNumber}
-                        </td>
-
-                        <td className="py-3.5 px-4 font-bold text-lime-400 text-xs">
-                          {m.roundName}
-                        </td>
-
-                        <td className="py-3.5 px-4 font-bold text-white">
-                          {m.teamA?.name || m.teamAName || 'TBD'}
-                        </td>
-
-                        <td className="py-3.5 px-4 font-bold text-white">
-                          {m.teamB?.name || m.teamBName || 'TBD'}
-                        </td>
-
-                        <td className="py-3.5 px-4 text-slate-300">
-                          <div>{m.venue || currentTournament?.venue}</div>
-                          <div className="text-[11px] text-slate-500 font-mono">
-                            {m.scheduledAt ? new Date(m.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : 'TBD'}
-                          </div>
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                              isLive
-                                ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                : m.status === 'COMPLETED'
-                                ? 'bg-lime-500/15 text-lime-400'
-                                : 'bg-slate-800 text-slate-400'
-                            }`}
-                          >
-                            {m.status}
+            <div>
+              {/* Mobile Match Cards View */}
+              <div className="block md:hidden divide-y divide-slate-800/80">
+                {matches.map((m) => {
+                  const isLive = m.status === 'LIVE';
+                  const isCompleted = m.status === 'COMPLETED';
+                  return (
+                    <div key={m._id} className="p-4 space-y-3 hover:bg-slate-900/30 transition-colors">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-white bg-slate-800 px-2 py-0.5 rounded-lg">
+                            M#{m.matchNumber}
                           </span>
-                        </td>
+                          <span className="font-bold text-lime-400">{m.roundName}</span>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            isLive
+                              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                              : isCompleted
+                              ? 'bg-lime-500/15 text-lime-400'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          {m.status}
+                        </span>
+                      </div>
 
-                        <td className="py-3.5 px-4 font-semibold text-lime-400">
-                          {m.winner?.name || (m.status === 'COMPLETED' ? 'Winner' : '-')}
-                        </td>
+                      <div className="bg-slate-900/60 p-3 rounded-2xl border border-slate-800/60 space-y-2">
+                        <div className="flex items-center justify-between font-bold text-sm">
+                          <span className="text-white truncate pr-2">{m.teamA?.name || m.teamAName || 'TBD'}</span>
+                          {m.winner && (m.winner._id === m.teamA?._id || m.winner === m.teamA?._id) && (
+                            <span className="text-lime-400 text-xs">🏆 Winner</span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-center">
+                          VS
+                        </div>
+                        <div className="flex items-center justify-between font-bold text-sm">
+                          <span className="text-white truncate pr-2">{m.teamB?.name || m.teamBName || 'TBD'}</span>
+                          {m.winner && (m.winner._id === m.teamB?._id || m.winner === m.teamB?._id) && (
+                            <span className="text-lime-400 text-xs">🏆 Winner</span>
+                          )}
+                        </div>
+                      </div>
 
-                        <td className="py-3.5 px-4 text-right">
-                          <Link
-                            to={`/admin/scoring?match=${m._id}`}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider ${
-                              isLive
-                                ? 'bg-red-500 text-white shadow-sm'
-                                : 'bg-lime-500 text-slate-950 hover:bg-lime-400'
-                            }`}
-                          >
-                            <Radio className="w-3.5 h-3.5" />
-                            {isLive ? 'Score Now' : 'Scorer'}
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                      <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                        <span className="truncate max-w-[180px]">{m.venue || currentTournament?.venue}</span>
+                        <Link
+                          to={`/admin/scoring?match=${m._id}`}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider ${
+                            isLive
+                              ? 'bg-red-500 text-white shadow-sm'
+                              : 'bg-lime-500 text-slate-950 hover:bg-lime-400'
+                          }`}
+                        >
+                          <Radio className="w-3.5 h-3.5" />
+                          {isLive ? 'Score Live' : 'Open Scorer'}
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 bg-slate-900/80 text-slate-400 font-bold uppercase text-[10px]">
+                      <th className="py-3 px-4">Match</th>
+                      <th className="py-3 px-4">Stage / Round</th>
+                      <th className="py-3 px-4">Team A</th>
+                      <th className="py-3 px-4">Team B</th>
+                      <th className="py-3 px-4">Venue & Time</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">Winner</th>
+                      <th className="py-3 px-4 text-right">Scorer Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {matches.map((m) => {
+                      const isLive = m.status === 'LIVE';
+                      return (
+                        <tr key={m._id} className="hover:bg-slate-900/40 transition-colors">
+                          <td className="py-3.5 px-4 font-mono font-bold text-white">
+                            #{m.matchNumber}
+                          </td>
+
+                          <td className="py-3.5 px-4 font-bold text-lime-400 text-xs">
+                            {m.roundName}
+                          </td>
+
+                          <td className="py-3.5 px-4 font-bold text-white">
+                            {m.teamA?.name || m.teamAName || 'TBD'}
+                          </td>
+
+                          <td className="py-3.5 px-4 font-bold text-white">
+                            {m.teamB?.name || m.teamBName || 'TBD'}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-slate-300">
+                            <div>{m.venue || currentTournament?.venue}</div>
+                            <div className="text-[11px] text-slate-500 font-mono">
+                              {m.scheduledAt ? new Date(m.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : 'TBD'}
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                isLive
+                                  ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                  : m.status === 'COMPLETED'
+                                  ? 'bg-lime-500/15 text-lime-400'
+                                  : 'bg-slate-800 text-slate-400'
+                              }`}
+                            >
+                              {m.status}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4 font-semibold text-lime-400">
+                            {m.winner?.name || (m.status === 'COMPLETED' ? 'Winner' : '-')}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right">
+                            <Link
+                              to={`/admin/scoring?match=${m._id}`}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider ${
+                                isLive
+                                  ? 'bg-red-500 text-white shadow-sm'
+                                  : 'bg-lime-500 text-slate-950 hover:bg-lime-400'
+                              }`}
+                            >
+                              <Radio className="w-3.5 h-3.5" />
+                              {isLive ? 'Score Now' : 'Scorer'}
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

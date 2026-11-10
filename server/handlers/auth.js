@@ -1,8 +1,8 @@
 import connectToDatabase from '../../lib/db.js';
 import Admin from '../../models/Admin.js';
-import { signToken, ensureDefaultAdmin } from '../../lib/auth.js';
+import { signToken, ensureDefaultAdmin, authenticateAdmin } from '../../lib/auth.js';
 
-export default async function handler(req, res) {
+export async function handleLogin(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
@@ -21,7 +21,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Match by either username or email
     const admin = await Admin.findOne({
       $or: [{ username: identifier }, { email: identifier }],
     });
@@ -51,5 +50,50 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Login error:', error);
     return res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+}
+
+export async function handleMe(req, res) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ success: false, message: 'Method not allowed' });
+  }
+
+  try {
+    const adminUser = await authenticateAdmin(req, res);
+    if (!adminUser) return;
+
+    await connectToDatabase();
+    const admin = await Admin.findById(adminUser.id).select('-password');
+    if (!admin) {
+      return res.status(404).json({ success: false, message: 'Admin not found' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      admin: {
+        id: admin._id,
+        username: admin.username || 'admin',
+        email: admin.email || 'admin@boxcricket.com',
+        name: admin.name || 'Super Admin',
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+}
+
+export async function handleInit(req, res) {
+  try {
+    await connectToDatabase();
+    const created = await ensureDefaultAdmin();
+    const count = await Admin.countDocuments();
+
+    return res.status(200).json({
+      success: true,
+      message: 'System initialization checked',
+      initialized: count > 0,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message || 'Initialization failed' });
   }
 }
