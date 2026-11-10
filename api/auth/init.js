@@ -10,9 +10,8 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      message: created ? 'Default admin initialized' : 'Admin already initialized',
-      adminCount: count,
-      defaultEmail: process.env.ADMIN_EMAIL || 'admin@boxcricket.com',
+      message: 'System initialization checked',
+      initialized: count > 0,
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message || 'Initialization failed' });

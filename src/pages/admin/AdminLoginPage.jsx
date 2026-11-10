@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { ShieldCheck, Lock, User, ArrowRight, AlertCircle, KeyRound } from 'lucide-react';
+import { ShieldCheck, Lock, User, ArrowRight, AlertCircle } from 'lucide-react';
 
 export default function AdminLoginPage() {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin@123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -18,13 +18,19 @@ export default function AdminLoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+
+    if (!username.trim() || !password) {
+      setErrorMsg('Please enter both username and password.');
+      return;
+    }
+
     setLoading(true);
 
     try {
       await login(username.trim(), password);
       navigate(from, { replace: true });
     } catch (err) {
-      setErrorMsg(err.message || 'Invalid username or password');
+      setErrorMsg(err.message || 'Invalid credentials');
     } finally {
       setLoading(false);
     }
@@ -32,7 +38,7 @@ export default function AdminLoginPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden">
-      {/* Background glow */}
+      {/* Background subtle glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-lime-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
       <div className="w-full max-w-md relative z-10">
@@ -45,13 +51,13 @@ export default function AdminLoginPage() {
           </Link>
           <h1 className="text-2xl font-black text-white tracking-tight">ADMIN SECURE LOGIN</h1>
           <p className="text-xs text-slate-400 mt-1">
-            Access tournament management, private registrations, fixtures & live scorer
+            Restricted area. Authorized tournament administrators only.
           </p>
         </div>
 
         {/* Login Form Box */}
         <div className="glass-panel p-8 rounded-3xl border border-slate-800 shadow-2xl">
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
             {errorMsg && (
               <div className="p-3.5 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-center gap-2.5">
                 <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-400" />
@@ -68,10 +74,11 @@ export default function AdminLoginPage() {
                 <input
                   type="text"
                   required
-                  placeholder="admin"
+                  placeholder="Enter admin username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-lime-500 font-medium"
+                  autoComplete="username"
                 />
               </div>
             </div>
@@ -85,10 +92,11 @@ export default function AdminLoginPage() {
                 <input
                   type="password"
                   required
-                  placeholder="admin@123"
+                  placeholder="••••••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-lime-500 font-medium"
+                  autoComplete="current-password"
                 />
               </div>
             </div>
@@ -110,19 +118,6 @@ export default function AdminLoginPage() {
               )}
             </button>
           </form>
-
-          {/* Credentials Info Badge */}
-          <div className="mt-6 pt-5 border-t border-slate-800/80 text-xs text-center space-y-1.5">
-            <div className="inline-flex items-center gap-1.5 text-lime-400 font-bold uppercase text-[10px] tracking-wider bg-lime-500/10 px-2.5 py-1 rounded-full border border-lime-500/20">
-              <KeyRound className="w-3 h-3" /> Configured Credentials
-            </div>
-            <div className="font-mono text-slate-300 text-xs">
-              Username: <span className="text-white font-bold">admin</span>
-            </div>
-            <div className="font-mono text-slate-300 text-xs">
-              Password: <span className="text-white font-bold">admin@123</span>
-            </div>
-          </div>
         </div>
 
         <div className="text-center mt-6">
