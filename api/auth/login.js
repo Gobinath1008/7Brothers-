@@ -11,13 +11,21 @@ export default async function handler(req, res) {
     await connectToDatabase();
     await ensureDefaultAdmin();
 
-    const { email, password } = req.body || {};
+    const { username, email, password } = req.body || {};
+    const identifier = (username || email || '').trim().toLowerCase();
 
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Please provide email and password' });
+    if (!identifier || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide username and password',
+      });
     }
 
-    const admin = await Admin.findOne({ email: email.toLowerCase().trim() });
+    // Match by either username or email
+    const admin = await Admin.findOne({
+      $or: [{ username: identifier }, { email: identifier }],
+    });
+
     if (!admin) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
@@ -35,8 +43,9 @@ export default async function handler(req, res) {
       token,
       admin: {
         id: admin._id,
-        email: admin.email,
-        name: admin.name,
+        username: admin.username || 'admin',
+        email: admin.email || 'admin@boxcricket.com',
+        name: admin.name || 'Super Admin',
       },
     });
   } catch (error) {

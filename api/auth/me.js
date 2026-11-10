@@ -21,8 +21,9 @@ export default async function handler(req, res) {
       success: true,
       admin: {
         id: admin._id,
-        email: admin.email,
-        name: admin.name,
+        username: admin.username || 'admin',
+        email: admin.email || 'admin@boxcricket.com',
+        name: admin.name || 'Super Admin',
       },
     });
   } catch (error) {

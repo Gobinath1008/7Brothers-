@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { ShieldCheck, Lock, Mail, ArrowRight, AlertCircle, Flame } from 'lucide-react';
+import { ShieldCheck, Lock, User, ArrowRight, AlertCircle, KeyRound } from 'lucide-react';
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('admin@123');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -21,10 +21,10 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      await login(username.trim(), password);
       navigate(from, { replace: true });
     } catch (err) {
-      setErrorMsg(err.message || 'Invalid credentials');
+      setErrorMsg(err.message || 'Invalid username or password');
     } finally {
       setLoading(false);
     }
@@ -61,17 +61,17 @@ export default function AdminLoginPage() {
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                Admin Email Address
+                Username or Email
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
                 <input
-                  type="email"
+                  type="text"
                   required
-                  placeholder="admin@boxcricket.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-lime-500"
+                  placeholder="admin"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-lime-500 font-medium"
                 />
               </div>
             </div>
@@ -85,10 +85,10 @@ export default function AdminLoginPage() {
                 <input
                   type="password"
                   required
-                  placeholder="••••••••••••"
+                  placeholder="admin@123"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-lime-500"
+                  className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-lime-500 font-medium"
                 />
               </div>
             </div>
@@ -105,16 +105,23 @@ export default function AdminLoginPage() {
                 </>
               ) : (
                 <>
-                  Sign In To Admin Console <ArrowRight className="w-4 h-4" />
+                  Sign In As Admin <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
           </form>
 
-          {/* Seed hint */}
-          <div className="mt-6 pt-5 border-t border-slate-800/80 text-[11px] text-slate-500 text-center space-y-1">
-            <p className="font-semibold text-slate-400">Default System Admin Credentials:</p>
-            <p className="font-mono text-slate-400">admin@boxcricket.com / AdminCricket@2026</p>
+          {/* Credentials Info Badge */}
+          <div className="mt-6 pt-5 border-t border-slate-800/80 text-xs text-center space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 text-lime-400 font-bold uppercase text-[10px] tracking-wider bg-lime-500/10 px-2.5 py-1 rounded-full border border-lime-500/20">
+              <KeyRound className="w-3 h-3" /> Configured Credentials
+            </div>
+            <div className="font-mono text-slate-300 text-xs">
+              Username: <span className="text-white font-bold">admin</span>
+            </div>
+            <div className="font-mono text-slate-300 text-xs">
+              Password: <span className="text-white font-bold">admin@123</span>
+            </div>
           </div>
         </div>
 

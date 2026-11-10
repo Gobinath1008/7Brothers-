@@ -2,12 +2,18 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 const AdminSchema = new mongoose.Schema({
-  email: {
+  username: {
     type: String,
-    required: [true, 'Email is required'],
-    unique: true,
     lowercase: true,
     trim: true,
+    default: 'admin',
+    sparse: true,
+  },
+  email: {
+    type: String,
+    lowercase: true,
+    trim: true,
+    default: 'admin@boxcricket.com',
   },
   password: {
     type: String,

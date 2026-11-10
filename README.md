@@ -92,8 +92,9 @@ Create a `.env` file in the root directory:
 ```env
 MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/box_cricket?retryWrites=true&w=majority
 JWT_SECRET=super_secret_box_cricket_jwt_key_2026_change_in_production
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin@123
 ADMIN_EMAIL=admin@boxcricket.com
-ADMIN_PASSWORD=AdminCricket@2026
 ```
 
 ### 3. Run Development Server
@@ -140,6 +141,7 @@ Both the React frontend and the `/api/*` serverless functions are served simulta
 ---
 
 ## 🏆 Default Admin Credentials
+- **Username**: `admin`
+- **Password**: `admin@123`
 - **Email**: `admin@boxcricket.com`
-- **Password**: `AdminCricket@2026`
-*(Auto-seeded on first run if database is empty)*
+*(Auto-seeded on first run)*

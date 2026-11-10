@@ -46,7 +46,11 @@ export async function apiRequest(endpoint, options = {}) {
 
 // Authentication API
 export const authService = {
-  login: (email, password) => apiRequest('/api/auth/login', { method: 'POST', body: { email, password } }),
+  login: (usernameOrEmail, password) =>
+    apiRequest('/api/auth/login', {
+      method: 'POST',
+      body: { username: usernameOrEmail, email: usernameOrEmail, password },
+    }),
   getMe: () => apiRequest('/api/auth/me'),
   initAdmin: () => apiRequest('/api/auth/init', { method: 'POST' }),
 };
