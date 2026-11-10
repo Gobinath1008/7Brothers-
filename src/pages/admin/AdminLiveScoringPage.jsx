@@ -178,8 +178,8 @@ export default function AdminLiveScoringPage() {
     }
   };
 
-  // Record Ball (Runs, Extras, Wicket) - NO player selection needed!
-  const handleRecordBall = async (runs = 0, extraType = 'NONE', isWicket = false) => {
+  // Record Ball (Runs, Extras, Wicket) - Box Cricket Rules
+  const handleRecordBall = async (runs = 0, extraType = 'NONE', isWicket = false, wicketType = 'OUT', extraRuns = 0) => {
     setRecording(true);
     setErrorMsg('');
     setAlertMsg('');
@@ -189,9 +189,9 @@ export default function AdminLiveScoringPage() {
         matchId: matchData._id,
         runs,
         extraType,
-        extraRuns: 0,
+        extraRuns,
         isWicket,
-        wicketType: isWicket ? 'OUT' : 'NONE',
+        wicketType: isWicket ? wicketType : 'NONE',
       });
 
       if (res.success) {
@@ -295,12 +295,21 @@ export default function AdminLiveScoringPage() {
   // Helper for ball badge styling
   const getBallBadge = (ball) => {
     if (ball.isWicket) {
+      if (ball.wicketType === 'SIX_OUT' || ball.ballSummary === '6-OUT') {
+        return { bg: 'bg-rose-600 text-white font-black', text: '6-OUT' };
+      }
       return { bg: 'bg-red-500 text-white font-black', text: 'W' };
     }
     if (ball.extraType === 'WIDE') {
+      if (ball.extraRuns === 4 || ball.ballSummary === 'Wd+4' || ball.totalRuns === 5) {
+        return { bg: 'bg-amber-500 text-slate-950 font-black shadow-md', text: 'Wd+4' };
+      }
       return { bg: 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold', text: ball.ballSummary || 'Wd' };
     }
     if (ball.extraType === 'NO_BALL') {
+      if (ball.extraRuns === 4 || ball.ballSummary === 'Nb+4' || ball.totalRuns === 5) {
+        return { bg: 'bg-amber-500 text-slate-950 font-black shadow-md', text: 'Nb+4' };
+      }
       return { bg: 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold', text: ball.ballSummary || 'Nb' };
     }
     if (ball.extraType === 'BYE') {
@@ -311,9 +320,6 @@ export default function AdminLiveScoringPage() {
     }
     if (ball.runsBat === 4) {
       return { bg: 'bg-lime-500 text-slate-950 font-black', text: '4' };
-    }
-    if (ball.runsBat === 6) {
-      return { bg: 'bg-purple-600 text-white font-black', text: '6' };
     }
     if (ball.runsBat === 0) {
       return { bg: 'bg-slate-800 text-slate-400 font-bold', text: '0' };
@@ -495,8 +501,9 @@ export default function AdminLiveScoringPage() {
             </div>
           </div>
 
-          {/* BIG TACTILE BALL SCORING BUTTONS */}
+          {/* BOX CRICKET TACTILE BALL SCORING BUTTONS */}
           <div className="pt-2 space-y-2.5">
+            {/* Primary Runs & Wicket Grid: 0, 1, 2, 3, 4, 6(OUT), W */}
             <div className="grid grid-cols-4 gap-2.5">
               {[0, 1, 2, 3].map((r) => (
                 <button
@@ -510,60 +517,68 @@ export default function AdminLiveScoringPage() {
                 </button>
               ))}
 
+              {/* 4 (Boundary) - Max runs in Box Cricket */}
               <button
                 type="button"
                 disabled={recording}
                 onClick={() => handleRecordBall(4, 'NONE', false)}
                 className="py-3.5 rounded-2xl bg-lime-500 hover:bg-lime-400 text-slate-950 font-mono text-2xl font-black active:scale-95 transition-transform shadow-md"
+                title="Four (Boundary)"
               >
                 4
               </button>
 
+              {/* 6 = OUT (Box Cricket Rule: Hitting 6 is Wicket Out!) */}
               <button
                 type="button"
                 disabled={recording}
-                onClick={() => handleRecordBall(5, 'NONE', false)}
-                className="py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 font-mono text-2xl font-black text-white active:scale-95 transition-transform shadow-md"
+                onClick={() => handleRecordBall(0, 'NONE', true, 'SIX_OUT')}
+                className="py-3.5 rounded-2xl bg-gradient-to-br from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-mono text-lg font-black active:scale-95 transition-transform shadow-md flex flex-col items-center justify-center leading-tight border border-rose-400/40"
+                title="Hit 6 (Over Net) = Wicket Out!"
               >
-                5
+                <span>6</span>
+                <span className="text-[10px] font-sans font-black tracking-wider uppercase text-rose-200">OUT</span>
               </button>
 
+              {/* Regular Wicket (Bowled / Caught / Run-out) */}
               <button
                 type="button"
                 disabled={recording}
-                onClick={() => handleRecordBall(6, 'NONE', false)}
-                className="py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-mono text-2xl font-black active:scale-95 transition-transform shadow-md"
+                onClick={() => handleRecordBall(0, 'NONE', true, 'OUT')}
+                className="py-3.5 col-span-2 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-mono text-xl font-black active:scale-95 transition-transform shadow-md flex items-center justify-center gap-1.5"
+                title="Wicket Fall (Bowled, Caught, Run Out)"
               >
-                6
-              </button>
-
-              {/* 1-TAP INSTANT WICKET */}
-              <button
-                type="button"
-                disabled={recording}
-                onClick={() => handleRecordBall(0, 'NONE', true)}
-                className="py-3.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-mono text-2xl font-black active:scale-95 transition-transform shadow-md"
-                title="Record Wicket Fall"
-              >
-                W
+                <span>W</span>
+                <span className="text-xs font-sans font-black tracking-wider uppercase">WICKET</span>
               </button>
             </div>
 
-            {/* Extras Row */}
-            <div className="grid grid-cols-4 gap-2 pt-1">
+            {/* Extras Row (Including Wide + 4) */}
+            <div className="grid grid-cols-5 gap-2 pt-1">
               <button
                 type="button"
                 disabled={recording}
-                onClick={() => handleRecordBall(0, 'WIDE', false)}
+                onClick={() => handleRecordBall(0, 'WIDE', false, 'NONE', 0)}
                 className="py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 font-bold text-xs active:scale-95"
+                title="Wide (+1 run)"
               >
                 +Wd
               </button>
               <button
                 type="button"
                 disabled={recording}
-                onClick={() => handleRecordBall(0, 'NO_BALL', false)}
+                onClick={() => handleRecordBall(0, 'WIDE', false, 'NONE', 4)}
+                className="py-2.5 rounded-xl bg-amber-500/25 hover:bg-amber-500/35 border border-amber-400 text-amber-300 font-black text-xs active:scale-95 shadow-sm"
+                title="Wide + 4 Boundary (+5 runs total)"
+              >
+                Wd+4
+              </button>
+              <button
+                type="button"
+                disabled={recording}
+                onClick={() => handleRecordBall(0, 'NO_BALL', false, 'NONE', 0)}
                 className="py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 font-bold text-xs active:scale-95"
+                title="No Ball (+1 run)"
               >
                 +Nb
               </button>
@@ -572,14 +587,16 @@ export default function AdminLiveScoringPage() {
                 disabled={recording}
                 onClick={() => handleRecordBall(1, 'BYE', false)}
                 className="py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold text-xs active:scale-95"
+                title="1 Bye"
               >
-                +1 Bye
+                +1 B
               </button>
               <button
                 type="button"
                 disabled={recording}
                 onClick={() => handleRecordBall(1, 'LEG_BYE', false)}
                 className="py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold text-xs active:scale-95"
+                title="1 Leg Bye"
               >
                 +1 Lb
               </button>

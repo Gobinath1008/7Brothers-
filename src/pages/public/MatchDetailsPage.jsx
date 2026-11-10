@@ -257,24 +257,29 @@ export default function MatchDetailsPage() {
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             {recentDeliveries.map((ball) => {
               const isW = ball.isWicket;
-              const isBoundary = ball.runsBat === 4 || ball.runsBat === 6;
+              const isSixOut = ball.wicketType === 'SIX_OUT' || ball.ballSummary === '6-OUT';
+              const isWd4 = ball.ballSummary === 'Wd+4';
               const isExtra = ball.extraType !== 'NONE';
 
               return (
                 <div
                   key={ball._id}
-                  className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center font-mono font-bold text-xs ${
-                    isW
+                  className={`px-2 h-9 rounded-2xl flex-shrink-0 flex items-center justify-center font-mono font-bold text-xs ${
+                    isSixOut
+                      ? 'bg-rose-600 text-white font-black shadow-md shadow-rose-600/30'
+                      : isW
                       ? 'bg-red-500 text-white shadow-md shadow-red-500/30'
-                      : ball.runsBat === 6
-                      ? 'bg-purple-600 text-white font-black'
+                      : isWd4
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-md'
                       : ball.runsBat === 4
                       ? 'bg-lime-500 text-slate-950 font-black'
+                      : ball.runsBat === 6
+                      ? 'bg-purple-600 text-white font-black'
                       : isExtra
                       ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                       : 'bg-slate-800 text-slate-300'
                   }`}
-                  title={`${ball.striker?.name} vs ${ball.bowler?.name} - ${ball.ballSummary}`}
+                  title={`${ball.ballSummary} (${ball.totalRuns || 0} runs)`}
                 >
                   {ball.ballSummary}
                 </div>
@@ -307,24 +312,30 @@ export default function MatchDetailsPage() {
                     Over {ovData.overNumber + 1}
                   </div>
                   <div className="flex items-center gap-1 mt-1 flex-wrap">
-                    {ovData.balls.map((b, i) => (
-                      <span
-                        key={i}
-                        className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-bold ${
-                          b.isWicket
-                            ? 'bg-red-500 text-white font-black'
-                            : b.runsBat === 4
-                            ? 'bg-lime-500 text-slate-950 font-black'
-                            : b.runsBat === 6
-                            ? 'bg-purple-600 text-white font-black'
-                            : b.extraType !== 'NONE'
-                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                            : 'bg-slate-800 text-slate-300'
-                        }`}
-                      >
-                        {b.ballSummary}
-                      </span>
-                    ))}
+                    {ovData.balls.map((b, i) => {
+                      const isSixOut = b.wicketType === 'SIX_OUT' || b.ballSummary === '6-OUT';
+                      const isWd4 = b.ballSummary === 'Wd+4';
+                      return (
+                        <span
+                          key={i}
+                          className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                            isSixOut
+                              ? 'bg-rose-600 text-white font-black'
+                              : b.isWicket
+                              ? 'bg-red-500 text-white font-black'
+                              : isWd4
+                              ? 'bg-amber-500 text-slate-950 font-black'
+                              : b.runsBat === 4
+                              ? 'bg-lime-500 text-slate-950 font-black'
+                              : b.extraType !== 'NONE'
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              : 'bg-slate-800 text-slate-300'
+                          }`}
+                        >
+                          {b.ballSummary}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
 

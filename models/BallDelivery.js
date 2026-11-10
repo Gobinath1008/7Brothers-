@@ -63,7 +63,6 @@ const BallDeliverySchema = new mongoose.Schema(
     },
     wicketType: {
       type: String,
-      enum: ['BOWLED', 'CAUGHT', 'RUN_OUT', 'STUMPED', 'LBW', 'HIT_WICKET', 'NONE'],
       default: 'NONE',
     },
     playerOut: {

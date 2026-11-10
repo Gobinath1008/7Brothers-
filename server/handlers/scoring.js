@@ -128,12 +128,24 @@ export async function handleScoreBall(req, res) {
 
     let ballSummary = String(batRuns);
     if (isWicket) {
-      ballSummary = 'W';
-      if (batRuns > 0) ballSummary = `W+${batRuns}`;
+      if (wicketType === 'SIX_OUT') {
+        ballSummary = '6-OUT';
+      } else {
+        ballSummary = 'W';
+        if (batRuns > 0) ballSummary = `W+${batRuns}`;
+      }
     } else if (isWide) {
-      ballSummary = extrasTotal > 1 ? `${extrasTotal}Wd` : 'Wd';
+      if (Number(extraRuns) === 4 || extrasTotal === 5) {
+        ballSummary = 'Wd+4';
+      } else {
+        ballSummary = extrasTotal > 1 ? `${extrasTotal}Wd` : 'Wd';
+      }
     } else if (isNoBall) {
-      ballSummary = batRuns > 0 ? `Nb+${batRuns}` : 'Nb';
+      if (Number(extraRuns) === 4 || batRuns === 4) {
+        ballSummary = 'Nb+4';
+      } else {
+        ballSummary = batRuns > 0 ? `Nb+${batRuns}` : 'Nb';
+      }
     } else if (isBye) {
       ballSummary = `${extrasTotal}B`;
     } else if (isLegBye) {
