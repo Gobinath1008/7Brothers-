@@ -3,7 +3,7 @@ import { handleTournaments, handleTournamentDetail } from '../server/handlers/to
 import { handleRegistrations, handleRegistrationDetail } from '../server/handlers/registrations.js';
 import { handleTeamsConfirm } from '../server/handlers/teams.js';
 import { handleMatches, handleMatchDetail, handleMatchesGenerate } from '../server/handlers/matches.js';
-import { handleScoreBall, handleScoreStatus, handleScoreUndo } from '../server/handlers/scoring.js';
+import { handleScoreBall, handleScoreStatus, handleScoreUndo, handleEditBall } from '../server/handlers/scoring.js';
 import { handleExportsData } from '../server/handlers/exports.js';
 
 async function parseBody(req) {
@@ -127,9 +127,10 @@ export default async function handler(req, res) {
       return await handleMatchDetail(req, res, id);
     }
 
-    // 6. Scoring: /api/scoring/ball, /api/scoring/status, /api/scoring/undo
+    // 6. Scoring: /api/scoring/ball, /api/scoring/edit-ball, /api/scoring/status, /api/scoring/undo
     if (parts[0] === 'scoring') {
       if (parts[1] === 'ball') return await handleScoreBall(req, res);
+      if (parts[1] === 'edit-ball') return await handleEditBall(req, res);
       if (parts[1] === 'status') return await handleScoreStatus(req, res);
       if (parts[1] === 'undo') return await handleScoreUndo(req, res);
     }

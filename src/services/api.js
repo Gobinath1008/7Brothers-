@@ -103,6 +103,9 @@ export const matchService = {
 // Scoring API
 export const scoringService = {
   recordBall: (data) => apiRequest('/api/scoring/ball', { method: 'POST', body: data }),
+  editBall: (data) => apiRequest('/api/scoring/edit-ball', { method: 'POST', body: data }),
+  deleteBall: (matchId, ballId) =>
+    apiRequest('/api/scoring/edit-ball', { method: 'POST', body: { matchId, ballId, action: 'DELETE' } }),
   undoBall: (matchId) => apiRequest('/api/scoring/undo', { method: 'POST', body: { matchId } }),
   updateStatus: (data) => apiRequest('/api/scoring/status', { method: 'POST', body: data }),
 };

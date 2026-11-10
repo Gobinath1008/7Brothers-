@@ -580,6 +580,52 @@ export async function handleScoreStatus(req, res) {
       });
     }
 
+    if (action === 'PREV_OVER') {
+      const currentInnNum = match.currentInnings || 1;
+      const innings = currentInnNum === 1 ? match.innings1 : match.innings2;
+
+      if (innings.overs > 0) {
+        innings.overs -= 1;
+        const overDeliveries = await BallDelivery.find({
+          match: match._id,
+          innings: currentInnNum,
+          overNumber: innings.overs,
+          isLegalDelivery: true,
+        });
+        innings.balls = Math.min(5, overDeliveries.length);
+      } else {
+        innings.balls = 0;
+      }
+
+      await match.save();
+
+      return res.status(200).json({
+        success: true,
+        message: `Returned to Over ${innings.overs + 1}`,
+        match,
+      });
+    }
+
+    if (action === 'EDIT_SCORE') {
+      const { inningsNumber, runs, wickets, overs, balls, target } = req.body || {};
+      const innNum = inningsNumber || match.currentInnings || 1;
+      const innings = innNum === 1 ? match.innings1 : match.innings2;
+
+      if (runs !== undefined) innings.runs = Math.max(0, Number(runs));
+      if (wickets !== undefined) innings.wickets = Math.max(0, Number(wickets));
+      if (overs !== undefined) innings.overs = Math.max(0, Number(overs));
+      if (balls !== undefined) innings.balls = Math.max(0, Number(balls));
+      if (target !== undefined && match.innings2) match.innings2.target = Math.max(0, Number(target));
+
+      await match.save();
+
+      return res.status(200).json({
+        success: true,
+        message: 'Match score updated successfully',
+        match,
+      });
+    }
+
     if (action === 'SUPER_OVER') {
       match.isSuperOver = true;
       match.status = 'LIVE';
@@ -713,5 +759,165 @@ export async function handleScoreUndo(req, res) {
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message || 'Error undoing ball delivery' });
+  }
+}
+
+export async function recalculateMatchInnings(matchId, innNum) {
+  const match = await Match.findById(matchId).populate('tournament');
+  const deliveries = await BallDelivery.find({ match: matchId, innings: innNum }).sort({ createdAt: 1 });
+
+  let runs = 0;
+  let wickets = 0;
+  let legalBalls = 0;
+  let extras = { wide: 0, noBall: 0, bye: 0, legBye: 0, total: 0 };
+
+  deliveries.forEach((d) => {
+    const totalBallRuns = d.totalRuns ?? ((d.runsBat || 0) + (d.extraRuns || 0));
+    runs += totalBallRuns;
+    if (d.isWicket) wickets += 1;
+    if (d.isLegalDelivery) legalBalls += 1;
+
+    if (d.extraType === 'WIDE') {
+      const wRuns = d.extraRuns || 1;
+      extras.wide += wRuns;
+      extras.total += wRuns;
+    } else if (d.extraType === 'NO_BALL') {
+      const nbRuns = d.extraRuns || 1;
+      extras.noBall += nbRuns;
+      extras.total += nbRuns;
+    } else if (d.extraType === 'BYE') {
+      const bRuns = d.extraRuns || d.runsBat || 1;
+      extras.bye += bRuns;
+      extras.total += bRuns;
+    } else if (d.extraType === 'LEG_BYE') {
+      const lbRuns = d.extraRuns || d.runsBat || 1;
+      extras.legBye += lbRuns;
+      extras.total += lbRuns;
+    }
+  });
+
+  const overs = Math.floor(legalBalls / 6);
+  const balls = legalBalls % 6;
+
+  const inn = innNum === 1 ? match.innings1 : match.innings2;
+  inn.runs = runs;
+  inn.wickets = wickets;
+  inn.overs = overs;
+  inn.balls = balls;
+  inn.extras = extras;
+
+  if (innNum === 1 && match.innings2) {
+    match.innings2.target = runs + 1;
+  }
+
+  await match.save();
+  return match;
+}
+
+export async function handleEditBall(req, res) {
+  await connectToDatabase();
+
+  try {
+    const adminUser = await authenticateAdmin(req, res);
+    if (!adminUser) return;
+
+    const {
+      matchId,
+      ballId,
+      action = 'UPDATE',
+      runs = 0,
+      extraType = 'NONE',
+      extraRuns = 0,
+      isWicket = false,
+      wicketType = 'NONE',
+    } = req.body || {};
+
+    if (!matchId || !ballId) {
+      return res.status(400).json({ success: false, message: 'Match ID and Ball ID are required.' });
+    }
+
+    const delivery = await BallDelivery.findById(ballId);
+    if (!delivery) {
+      return res.status(404).json({ success: false, message: 'Ball delivery not found.' });
+    }
+
+    const innNum = delivery.innings;
+
+    if (action === 'DELETE') {
+      await BallDelivery.findByIdAndDelete(ballId);
+      const match = await recalculateMatchInnings(matchId, innNum);
+      return res.status(200).json({
+        success: true,
+        message: 'Delivery deleted and score recalculated!',
+        match,
+      });
+    }
+
+    const isWide = extraType === 'WIDE';
+    const isNoBall = extraType === 'NO_BALL';
+    const isBye = extraType === 'BYE';
+    const isLegBye = extraType === 'LEG_BYE';
+    const isLegal = !isWide && !isNoBall;
+
+    let batRuns = Number(runs || 0);
+    let extrasTotal = 0;
+
+    if (isWide) {
+      batRuns = 0;
+      extrasTotal = 1 + Number(extraRuns);
+    } else if (isNoBall) {
+      extrasTotal = 1 + Number(extraRuns);
+    } else if (isBye || isLegBye) {
+      extrasTotal = batRuns;
+      batRuns = 0;
+    }
+
+    let ballSummary = String(batRuns);
+    if (isWicket) {
+      if (wicketType === 'SIX_OUT') {
+        ballSummary = '6-OUT';
+      } else {
+        ballSummary = 'W';
+        if (batRuns > 0) ballSummary = `W+${batRuns}`;
+      }
+    } else if (isWide) {
+      if (Number(extraRuns) === 4 || extrasTotal === 5) {
+        ballSummary = 'Wd+4';
+      } else {
+        ballSummary = extrasTotal > 1 ? `${extrasTotal}Wd` : 'Wd';
+      }
+    } else if (isNoBall) {
+      if (Number(extraRuns) === 4 || batRuns === 4) {
+        ballSummary = 'Nb+4';
+      } else {
+        ballSummary = batRuns > 0 ? `Nb+${batRuns}` : 'Nb';
+      }
+    } else if (isBye) {
+      ballSummary = `${extrasTotal}B`;
+    } else if (isLegBye) {
+      ballSummary = `${extrasTotal}LB`;
+    }
+
+    delivery.runsBat = batRuns;
+    delivery.extraRuns = extrasTotal;
+    delivery.extraType = extraType || 'NONE';
+    delivery.isLegalDelivery = isLegal;
+    delivery.isWicket = !!isWicket;
+    delivery.wicketType = isWicket ? (wicketType || 'OUT') : 'NONE';
+    delivery.totalRuns = batRuns + extrasTotal;
+    delivery.ballSummary = ballSummary;
+
+    await delivery.save();
+
+    const match = await recalculateMatchInnings(matchId, innNum);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Delivery updated and score recalculated successfully!',
+      match,
+      delivery,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message || 'Error editing delivery' });
   }
 }
