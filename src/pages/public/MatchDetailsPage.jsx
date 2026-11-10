@@ -10,6 +10,7 @@ import {
   Clock,
   Shield,
   Activity,
+  ExternalLink,
 } from 'lucide-react';
 
 export default function MatchDetailsPage() {
@@ -196,7 +197,20 @@ export default function MatchDetailsPage() {
         <div className="mt-6 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-slate-500" />
-            <span>Venue: {match.venue || match.tournament?.venue}</span>
+            {match.tournament?.locationUrl ? (
+              <a
+                href={match.tournament.locationUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-lime-400 hover:underline flex items-center gap-1 font-semibold"
+                title="Click to open Google Maps"
+              >
+                <span>Venue: {match.venue || match.tournament?.venue}</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            ) : (
+              <span>Venue: {match.venue || match.tournament?.venue}</span>
+            )}
           </div>
           {match.toss?.wonBy && (
             <div className="flex items-center gap-1.5 text-slate-300 font-semibold">

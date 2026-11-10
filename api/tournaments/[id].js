@@ -65,6 +65,7 @@ export default async function handler(req, res) {
         tournamentDate,
         regDeadline,
         venue,
+        locationUrl,
         playersPerTeam,
         oversPerMatch,
         maxTeams,
@@ -73,10 +74,21 @@ export default async function handler(req, res) {
         finalTeamsConfirmed,
       } = req.body || {};
 
+      const newDate = tournamentDate ? new Date(tournamentDate) : tournament.tournamentDate;
+      const newDeadline = regDeadline ? new Date(regDeadline) : tournament.regDeadline;
+
+      if (newDeadline >= newDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Registration deadline must be before the tournament date and time.',
+        });
+      }
+
       if (name) tournament.name = name;
-      if (tournamentDate) tournament.tournamentDate = new Date(tournamentDate);
-      if (regDeadline) tournament.regDeadline = new Date(regDeadline);
+      if (tournamentDate) tournament.tournamentDate = newDate;
+      if (regDeadline) tournament.regDeadline = newDeadline;
       if (venue) tournament.venue = venue;
+      if (locationUrl !== undefined) tournament.locationUrl = locationUrl.trim();
       if (playersPerTeam !== undefined) tournament.playersPerTeam = Number(playersPerTeam);
       if (oversPerMatch !== undefined) tournament.oversPerMatch = Number(oversPerMatch);
       if (maxTeams !== undefined) tournament.maxTeams = Number(maxTeams);

@@ -15,6 +15,7 @@ import {
   CheckCircle,
   X,
   Play,
+  Navigation,
 } from 'lucide-react';
 
 export default function AdminTournamentsPage() {
@@ -31,6 +32,7 @@ export default function AdminTournamentsPage() {
     tournamentDate: '',
     regDeadline: '',
     venue: '',
+    locationUrl: '',
     playersPerTeam: 7,
     oversPerMatch: 5,
     maxTeams: 16,
@@ -56,6 +58,13 @@ export default function AdminTournamentsPage() {
   const handleCreateTournament = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+
+    // Rule: Registration deadline must strictly be before tournament date
+    if (new Date(form.regDeadline) >= new Date(form.tournamentDate)) {
+      setErrorMsg('Registration deadline must be before the tournament date and time.');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -68,6 +77,7 @@ export default function AdminTournamentsPage() {
           tournamentDate: '',
           regDeadline: '',
           venue: '',
+          locationUrl: '',
           playersPerTeam: 7,
           oversPerMatch: 5,
           maxTeams: 16,
@@ -114,7 +124,7 @@ export default function AdminTournamentsPage() {
             TOURNAMENT <span className="text-lime-400">MANAGEMENT</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Create, configure, open/close registrations, and track tournaments
+            Create, configure, open/close registrations, set Google Maps venue, and track tournaments
           </p>
         </div>
 
@@ -154,7 +164,7 @@ export default function AdminTournamentsPage() {
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-900/80 text-slate-400 font-bold uppercase text-[10px]">
                   <th className="py-3 px-4">Tournament Name</th>
-                  <th className="py-3 px-4">Date & Venue</th>
+                  <th className="py-3 px-4">Date & Venue (Map)</th>
                   <th className="py-3 px-4">Registration Deadline</th>
                   <th className="py-3 px-4">Format / Rules</th>
                   <th className="py-3 px-4">Teams / Status</th>
@@ -173,9 +183,23 @@ export default function AdminTournamentsPage() {
 
                       <td className="py-4 px-4 text-slate-300">
                         <div>{new Date(t.tournamentDate).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</div>
-                        <div className="text-slate-500 flex items-center gap-1 mt-0.5">
-                          <MapPin className="w-3 h-3" /> {t.venue}
-                        </div>
+                        {t.locationUrl ? (
+                          <a
+                            href={t.locationUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-lime-400 hover:underline flex items-center gap-1 mt-0.5 font-bold text-[11px] transition-colors"
+                            title="Click to open in Google Maps"
+                          >
+                            <MapPin className="w-3 h-3 text-lime-400" />
+                            <span>{t.venue}</span>
+                            <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
+                          </a>
+                        ) : (
+                          <div className="text-slate-400 flex items-center gap-1 mt-0.5">
+                            <MapPin className="w-3 h-3 text-slate-500" /> {t.venue}
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-4 px-4">
@@ -247,7 +271,7 @@ export default function AdminTournamentsPage() {
       {/* Create Tournament Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="glass-panel w-full max-w-xl rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative">
+          <div className="glass-panel w-full max-w-xl rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative my-8">
             <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-800">
               <h3 className="text-lg font-black text-white flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-lime-400" /> Create New Tournament
@@ -258,8 +282,9 @@ export default function AdminTournamentsPage() {
             </div>
 
             {errorMsg && (
-              <div className="mb-4 p-3 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-xs">
-                {errorMsg}
+              <div className="mb-4 p-3 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-400" />
+                <span>{errorMsg}</span>
               </div>
             )}
 
@@ -278,9 +303,9 @@ export default function AdminTournamentsPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Tournament Date *</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Tournament Date & Time *</label>
                   <input
-                    type="date"
+                    type="datetime-local"
                     required
                     value={form.tournamentDate}
                     onChange={(e) => setForm({ ...form, tournamentDate: e.target.value })}
@@ -290,7 +315,7 @@ export default function AdminTournamentsPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-300 mb-1">
-                    Registration Deadline (Asia/Kolkata) *
+                    Registration Deadline (Must be before tournament) *
                   </label>
                   <input
                     type="datetime-local"
@@ -299,19 +324,43 @@ export default function AdminTournamentsPage() {
                     onChange={(e) => setForm({ ...form, regDeadline: e.target.value })}
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-lime-500"
                   />
+                  <span className="text-[10px] text-slate-400 block mt-1">
+                    Registration must close before the tournament starts.
+                  </span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Venue / Ground Address *</label>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Venue / Ground Name *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. 7Brothers Turf Arena, Main Ground"
+                  placeholder="e.g. 7Brothers Turf Arena, Main Pitch"
                   value={form.venue}
                   onChange={(e) => setForm({ ...form, venue: e.target.value })}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-lime-500"
                 />
+              </div>
+
+              {/* Google Maps Location URL */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1 flex items-center justify-between">
+                  <span>Google Maps Location Link (Click to open map)</span>
+                  <span className="text-[10px] text-lime-400 font-normal">Optional</span>
+                </label>
+                <div className="relative">
+                  <MapPin className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                  <input
+                    type="url"
+                    placeholder="https://maps.app.goo.gl/... or https://goo.gl/maps/..."
+                    value={form.locationUrl}
+                    onChange={(e) => setForm({ ...form, locationUrl: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-lime-500"
+                  />
+                </div>
+                <span className="text-[10px] text-slate-500 block mt-1">
+                  Paste the Google Maps share link so players can click and navigate directly to the venue.
+                </span>
               </div>
 
               <div className="grid grid-cols-3 gap-3">

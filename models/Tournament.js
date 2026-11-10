@@ -25,6 +25,11 @@ const TournamentSchema = new mongoose.Schema(
       required: [true, 'Venue is required'],
       trim: true,
     },
+    locationUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     playersPerTeam: {
       type: Number,
       required: [true, 'Number of players per team is required'],
@@ -95,8 +100,8 @@ const TournamentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Auto slug generation before save
-TournamentSchema.pre('save', function (next) {
+// Auto slug generation before save (Mongoose 9 compatible: no next callback needed)
+TournamentSchema.pre('save', function () {
   if (this.isModified('name') || !this.slug) {
     this.slug =
       this.name
@@ -106,7 +111,6 @@ TournamentSchema.pre('save', function (next) {
       '-' +
       Math.floor(1000 + Math.random() * 9000);
   }
-  next();
 });
 
 export default mongoose.models.Tournament || mongoose.model('Tournament', TournamentSchema);

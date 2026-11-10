@@ -53,6 +53,7 @@ export default async function handler(req, res) {
         tournamentDate,
         regDeadline,
         venue,
+        locationUrl = '',
         playersPerTeam = 7,
         oversPerMatch = 5,
         format = 'Knockout',
@@ -69,16 +70,31 @@ export default async function handler(req, res) {
       }
 
       // Validate dates
+      const parsedTournamentDate = new Date(tournamentDate);
       const parsedRegDeadline = new Date(regDeadline);
+
+      if (isNaN(parsedTournamentDate.getTime())) {
+        return res.status(400).json({ success: false, message: 'Invalid tournament date' });
+      }
+
       if (isNaN(parsedRegDeadline.getTime())) {
         return res.status(400).json({ success: false, message: 'Invalid registration closing date & time' });
       }
 
+      // Rule: Registration deadline must strictly be before the tournament date
+      if (parsedRegDeadline >= parsedTournamentDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Registration deadline must be before the tournament date and time.',
+        });
+      }
+
       const tournament = await Tournament.create({
         name,
-        tournamentDate: new Date(tournamentDate),
+        tournamentDate: parsedTournamentDate,
         regDeadline: parsedRegDeadline,
         venue,
+        locationUrl: locationUrl.trim(),
         playersPerTeam: Number(playersPerTeam),
         oversPerMatch: Number(oversPerMatch),
         format,
@@ -90,10 +106,11 @@ export default async function handler(req, res) {
 
       return res.status(201).json({
         success: true,
-        message: 'Tournament created successfully',
+        message: 'Tournament created successfully! 🔥',
         tournament,
       });
     } catch (error) {
+      console.error('Error creating tournament:', error);
       return res.status(500).json({ success: false, message: error.message || 'Error creating tournament' });
     }
   }

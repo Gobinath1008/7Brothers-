@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { tournamentService, matchService } from '../../services/api';
 import KnockoutBracketView from '../../components/KnockoutBracketView';
-import { Trophy, GitBranch, Calendar, MapPin, Printer } from 'lucide-react';
+import { Trophy, GitBranch, Calendar, MapPin, Printer, ExternalLink } from 'lucide-react';
 
 export default function BracketPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -115,8 +115,24 @@ export default function BracketPage() {
                 <Calendar className="w-3.5 h-3.5 text-slate-500" />
                 <span>{new Date(currentTournament.tournamentDate).toLocaleDateString('en-IN', { dateStyle: 'medium' })}</span>
                 <span>•</span>
-                <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                <span>{currentTournament.venue}</span>
+                {currentTournament.locationUrl ? (
+                  <a
+                    href={currentTournament.locationUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-lime-400 hover:underline flex items-center gap-1 font-semibold"
+                    title="Click to open Google Maps"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-lime-400" />
+                    <span>{currentTournament.venue}</span>
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{currentTournament.venue}</span>
+                  </span>
+                )}
               </div>
             </div>
           </div>

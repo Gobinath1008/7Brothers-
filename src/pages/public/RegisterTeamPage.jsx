@@ -13,6 +13,8 @@ import {
   Sparkles,
   ArrowRight,
   Flame,
+  MapPin,
+  ExternalLink,
 } from 'lucide-react';
 
 export default function RegisterTeamPage() {
@@ -266,18 +268,39 @@ export default function RegisterTeamPage() {
           {/* Tournament Details Banner */}
           {selectedTournament && (
             <div className="mt-3 p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 text-slate-300">
-                <Clock className="w-4 h-4 text-lime-400" />
-                <span>
-                  Deadline:{' '}
-                  <strong className="text-white">
-                    {new Date(selectedTournament.regDeadline).toLocaleString('en-IN', {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    })}
-                  </strong>
-                </span>
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2 text-slate-300">
+                  <Clock className="w-4 h-4 text-lime-400" />
+                  <span>
+                    Deadline:{' '}
+                    <strong className="text-white">
+                      {new Date(selectedTournament.regDeadline).toLocaleString('en-IN', {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })}
+                    </strong>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-slate-300">
+                  <MapPin className="w-4 h-4 text-lime-400" />
+                  {selectedTournament.locationUrl ? (
+                    <a
+                      href={selectedTournament.locationUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-lime-400 hover:underline flex items-center gap-1 font-semibold"
+                      title="Click to open Google Maps"
+                    >
+                      <span>{selectedTournament.venue}</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ) : (
+                    <span>{selectedTournament.venue}</span>
+                  )}
+                </div>
               </div>
+
               <div className="flex items-center gap-2">
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
