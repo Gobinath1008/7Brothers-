@@ -6,6 +6,12 @@ import fs from 'fs';
 import path from 'path';
 
 dotenv.config();
+if (!process.env.MONGODB_URI) {
+  const envExamplePath = path.resolve(process.cwd(), '.env.example');
+  if (fs.existsSync(envExamplePath)) {
+    dotenv.config({ path: envExamplePath });
+  }
+}
 
 // Local Development Serverless Function Middleware
 function serverlessApiPlugin() {
