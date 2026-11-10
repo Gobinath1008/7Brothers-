@@ -15,6 +15,7 @@ import {
   Flame,
   MapPin,
   ExternalLink,
+  PhoneCall,
 } from 'lucide-react';
 
 export default function RegisterTeamPage() {
@@ -25,11 +26,11 @@ export default function RegisterTeamPage() {
   const [selectedTournamentId, setSelectedTournamentId] = useState(preSelectedTournamentId || '');
   const [selectedTournament, setSelectedTournament] = useState(null);
 
-  // Form states
+  // Simplified Form states: Team Name, Captain Name, 2 Phone Numbers
   const [teamName, setTeamName] = useState('');
   const [captainName, setCaptainName] = useState('');
   const [captainPhone, setCaptainPhone] = useState('');
-  const [players, setPlayers] = useState([]);
+  const [secondaryPhone, setSecondaryPhone] = useState('');
 
   // Status states
   const [loading, setLoading] = useState(false);
@@ -46,7 +47,6 @@ export default function RegisterTeamPage() {
           if (preSelectedTournamentId) {
             setSelectedTournamentId(preSelectedTournamentId);
           } else if (res.tournaments.length > 0) {
-            // Find first tournament with open registration
             const openT = res.tournaments.find((t) => t.status === 'REGISTRATION_OPEN') || res.tournaments[0];
             setSelectedTournamentId(openT._id);
           }
@@ -58,54 +58,12 @@ export default function RegisterTeamPage() {
     loadTournaments();
   }, [preSelectedTournamentId]);
 
-  // Sync selected tournament object and initialize player slots
+  // Sync selected tournament object
   useEffect(() => {
     if (!selectedTournamentId || tournaments.length === 0) return;
-
     const t = tournaments.find((item) => item._id === selectedTournamentId);
     setSelectedTournament(t || null);
-
-    if (t) {
-      const squadSize = t.playersPerTeam || 7;
-      // Initialize squad list
-      const initialPlayers = [];
-      for (let i = 0; i < squadSize; i++) {
-        initialPlayers.push({
-          name: i === 0 ? captainName : '',
-          phone: i === 0 ? captainPhone : '',
-          isCaptain: i === 0,
-        });
-      }
-      setPlayers(initialPlayers);
-    }
   }, [selectedTournamentId, tournaments]);
-
-  // Keep player 1 in sync with captain inputs
-  const handleCaptainNameChange = (val) => {
-    setCaptainName(val);
-    setPlayers((prev) => {
-      const next = [...prev];
-      if (next[0]) next[0].name = val;
-      return next;
-    });
-  };
-
-  const handleCaptainPhoneChange = (val) => {
-    setCaptainPhone(val);
-    setPlayers((prev) => {
-      const next = [...prev];
-      if (next[0]) next[0].phone = val;
-      return next;
-    });
-  };
-
-  const handlePlayerChange = (index, field, value) => {
-    setPlayers((prev) => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
-      return updated;
-    });
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -116,28 +74,32 @@ export default function RegisterTeamPage() {
       return;
     }
 
-    // Check deadline on client first
     if (new Date(selectedTournament.regDeadline) < new Date()) {
       setErrorMsg('Registration for this tournament has closed.');
       return;
     }
 
-    if (!teamName.trim() || !captainName.trim() || !captainPhone.trim()) {
-      setErrorMsg('Please enter Team Name, Captain Name, and Captain Mobile Number.');
+    if (!teamName.trim() || !captainName.trim() || !captainPhone.trim() || !secondaryPhone.trim()) {
+      setErrorMsg('Please fill in Team Name, Captain Name, Primary Mobile Number, and Secondary Mobile Number.');
       return;
     }
 
-    // Verify all players
-    for (let i = 0; i < players.length; i++) {
-      if (!players[i].name.trim() || !players[i].phone.trim()) {
-        setErrorMsg(`Player #${i + 1} name and mobile number are required.`);
-        return;
-      }
-      const cleaned = players[i].phone.replace(/\D/g, '');
-      if (cleaned.length < 10) {
-        setErrorMsg(`Player #${i + 1} (${players[i].name}) must have a valid 10-digit mobile number.`);
-        return;
-      }
+    const cleanPhone1 = captainPhone.replace(/\D/g, '');
+    const cleanPhone2 = secondaryPhone.replace(/\D/g, '');
+
+    if (cleanPhone1.length < 10) {
+      setErrorMsg('Primary mobile number must be a valid 10-digit number.');
+      return;
+    }
+
+    if (cleanPhone2.length < 10) {
+      setErrorMsg('Secondary / Alternate mobile number must be a valid 10-digit number.');
+      return;
+    }
+
+    if (cleanPhone1 === cleanPhone2) {
+      setErrorMsg('Primary and secondary mobile numbers must be different.');
+      return;
     }
 
     setLoading(true);
@@ -147,15 +109,14 @@ export default function RegisterTeamPage() {
         tournamentId: selectedTournament._id,
         teamName: teamName.trim(),
         captainName: captainName.trim(),
-        captainPhone: captainPhone.trim(),
-        players,
+        captainPhone: cleanPhone1,
+        secondaryPhone: cleanPhone2,
       };
 
       const res = await registrationService.registerTeam(payload);
 
       if (res.success) {
         setSuccessData(res);
-        // Trigger celebratory confetti
         confetti({
           particleCount: 120,
           spread: 70,
@@ -197,9 +158,13 @@ export default function RegisterTeamPage() {
               <span className="text-xs uppercase font-bold text-slate-400">Captain</span>
               <span className="text-sm font-semibold text-slate-200">{successData.team?.captainName}</span>
             </div>
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span className="text-xs uppercase font-bold text-slate-400">Primary Mobile</span>
+              <span className="font-mono text-sm font-semibold text-lime-400">{successData.team?.captainPhone}</span>
+            </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs uppercase font-bold text-slate-400">Squad Size</span>
-              <span className="text-sm font-semibold text-slate-200">{successData.team?.playerCount} Players</span>
+              <span className="text-xs uppercase font-bold text-slate-400">Secondary Mobile</span>
+              <span className="font-mono text-sm font-semibold text-slate-300">{successData.team?.secondaryPhone}</span>
             </div>
           </div>
 
@@ -216,6 +181,7 @@ export default function RegisterTeamPage() {
                 setTeamName('');
                 setCaptainName('');
                 setCaptainPhone('');
+                setSecondaryPhone('');
               }}
               className="px-6 py-3.5 rounded-xl font-bold text-xs text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-800 transition-colors"
             >
@@ -233,30 +199,30 @@ export default function RegisterTeamPage() {
   );
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-lime-500/10 border border-lime-500/30 text-lime-400 text-xs font-bold uppercase tracking-wider mb-3">
-          <Flame className="w-3.5 h-3.5" /> No Account or Password Needed
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-8">
+      {/* Page Header */}
+      <div className="text-center space-y-2">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-lime-500/10 border border-lime-500/30 text-lime-400 text-xs font-bold uppercase tracking-wider">
+          <Flame className="w-4 h-4" /> Official Entry Portal
         </div>
         <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-          REGISTER YOUR <span className="text-lime-400">BOX CRICKET TEAM</span>
+          REGISTER YOUR <span className="text-lime-400">TEAM</span>
         </h1>
-        <p className="text-slate-400 text-sm mt-2 max-w-lg mx-auto">
-          Enter your team and player details below. Verification is instant and spots are locked on submission.
+        <p className="text-slate-400 text-sm max-w-lg mx-auto">
+          Enter your team name, captain details, and contact numbers to secure your tournament slot.
         </p>
       </div>
 
-      <div className="glass-panel rounded-3xl p-6 sm:p-10 border border-slate-800 shadow-xl">
-        {/* Tournament Selector */}
-        <div className="mb-8">
-          <label className="block text-xs uppercase font-extrabold tracking-wider text-slate-300 mb-2">
+      <div className="glass-panel rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl space-y-6">
+        {/* Tournament Selection */}
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2">
             Select Tournament *
           </label>
           <select
             value={selectedTournamentId}
             onChange={(e) => setSelectedTournamentId(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-sm font-semibold text-white focus:outline-none focus:border-lime-500"
+            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm font-semibold text-white focus:outline-none focus:border-lime-500"
           >
             {tournaments.map((t) => (
               <option key={t._id} value={t._id}>
@@ -330,7 +296,7 @@ export default function RegisterTeamPage() {
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {errorMsg && (
               <div className="p-4 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-center gap-3">
                 <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-400" />
@@ -338,129 +304,91 @@ export default function RegisterTeamPage() {
               </div>
             )}
 
-            {/* Team Details Section */}
+            {/* Quick Registration Form: Team Name, Captain Name, 2 Phone Numbers */}
             <div className="space-y-4">
-              <h3 className="text-sm font-black uppercase tracking-wider text-lime-400 flex items-center gap-2">
-                <Shield className="w-4 h-4" /> 1. Team & Captain Details
-              </h3>
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-lime-400" /> Team Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 7Brothers Strikers"
+                  value={teamName}
+                  onChange={(e) => setTeamName(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-lime-500 font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-lime-400" /> Team Captain Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Captain Full Name"
+                  value={captainName}
+                  onChange={(e) => setCaptainName(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-lime-500"
+                />
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                    Team Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Royal Strikers"
-                    value={teamName}
-                    onChange={(e) => setTeamName(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-lime-500"
-                  />
-                </div>
-
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                    Captain Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Captain Full Name"
-                    value={captainName}
-                    onChange={(e) => handleCaptainNameChange(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-lime-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                    Captain Mobile Number *
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-lime-400" /> Phone Number 1 (Captain Mobile) *
                   </label>
                   <input
                     type="tel"
                     required
-                    placeholder="10-digit mobile number"
+                    placeholder="10-digit primary mobile"
                     value={captainPhone}
-                    onChange={(e) => handleCaptainPhoneChange(e.target.value)}
+                    onChange={(e) => setCaptainPhone(e.target.value)}
                     maxLength={10}
-                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-lime-500"
+                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-lime-500 font-mono"
                   />
+                  <span className="text-[10px] text-slate-400 mt-1 block">Primary contact for match updates</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <PhoneCall className="w-3.5 h-3.5 text-emerald-400" /> Phone Number 2 (Alternate Mobile) *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="10-digit secondary mobile"
+                    value={secondaryPhone}
+                    onChange={(e) => setSecondaryPhone(e.target.value)}
+                    maxLength={10}
+                    className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-lime-500 font-mono"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">Emergency / Alternate squad number</span>
                 </div>
               </div>
             </div>
 
-            {/* Players Section */}
-            <div className="space-y-4 pt-4 border-t border-slate-800">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-black uppercase tracking-wider text-lime-400 flex items-center gap-2">
-                  <Users className="w-4 h-4" /> 2. Squad Players ({players.length} Players Required)
-                </h3>
-                <span className="text-[11px] text-slate-400">All players must have valid phone numbers</span>
-              </div>
-
-              <div className="space-y-3">
-                {players.map((p, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 flex flex-col sm:flex-row items-center gap-3"
-                  >
-                    <div className="flex items-center gap-2 sm:w-28 flex-shrink-0">
-                      <span className="w-6 h-6 rounded-lg bg-slate-800 text-lime-400 font-mono text-xs font-black flex items-center justify-center">
-                        {idx + 1}
-                      </span>
-                      <span className="text-xs font-bold text-slate-300">
-                        {idx === 0 ? 'Captain' : `Player ${idx + 1}`}
-                      </span>
-                    </div>
-
-                    <div className="flex-1 w-full sm:w-auto">
-                      <input
-                        type="text"
-                        required
-                        placeholder="Player Name"
-                        value={p.name}
-                        onChange={(e) => handlePlayerChange(idx, 'name', e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-500"
-                      />
-                    </div>
-
-                    <div className="flex-1 w-full sm:w-auto">
-                      <input
-                        type="tel"
-                        required
-                        placeholder="10-digit Phone"
-                        maxLength={10}
-                        value={p.phone}
-                        onChange={(e) => handlePlayerChange(idx, 'phone', e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-500"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Submit Action */}
-            <div className="pt-6">
+            <div className="pt-4 border-t border-slate-800">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 rounded-xl font-black text-sm uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-all glow-lime disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
+                className="w-full py-4 rounded-xl font-black text-sm uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-all glow-lime disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg cursor-pointer"
               >
                 {loading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></div>
-                    Verifying & Registering Team...
+                    Registering Team...
                   </>
                 ) : (
                   <>
-                    Confirm & Complete Registration <ArrowRight className="w-4 h-4" />
+                    Submit Team Registration <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
               <p className="text-center text-[11px] text-slate-500 mt-3">
-                By registering, your captain confirms squad availability on the tournament date.
+                No squad player list needed upfront. Team details & contacts will be registered immediately.
               </p>
             </div>
           </form>

@@ -94,9 +94,10 @@ export const matchService = {
     return apiRequest(url);
   },
   getById: (id) => apiRequest(`/api/matches/${id}`),
+  createMatch: (data) => apiRequest('/api/matches', { method: 'POST', body: data }),
   update: (id, data) => apiRequest(`/api/matches/${id}`, { method: 'PUT', body: data }),
-  generateFixtures: (tournamentId, force = false) =>
-    apiRequest('/api/matches/generate', { method: 'POST', body: { tournamentId, force } }),
+  generateFixtures: (tournamentId, force = false, mode = 'AUTOMATIC', customPairs = []) =>
+    apiRequest('/api/matches/generate', { method: 'POST', body: { tournamentId, force, mode, customPairs } }),
 };
 
 // Scoring API

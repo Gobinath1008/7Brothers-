@@ -16,7 +16,7 @@ function normalizePhone(phone) {
 export async function handleRegistrations(req, res) {
   await connectToDatabase();
 
-  // POST: Public Guest Team Registration
+  // POST: Public Guest Team Registration (Only Team Name, Captain Name, Primary Mobile, Secondary Mobile)
   if (req.method === 'POST') {
     try {
       const {
@@ -24,14 +24,14 @@ export async function handleRegistrations(req, res) {
         teamName,
         captainName,
         captainPhone,
+        secondaryPhone = '',
         logo = '',
-        players = [],
       } = req.body || {};
 
-      if (!tournamentId || !teamName || !captainName || !captainPhone) {
+      if (!tournamentId || !teamName || !captainName || !captainPhone || !secondaryPhone) {
         return res.status(400).json({
           success: false,
-          message: 'Please provide Tournament, Team Name, Captain Name, and Captain Mobile Number.',
+          message: 'Please provide Team Name, Captain Name, Primary Mobile Number, and Secondary Mobile Number.',
         });
       }
 
@@ -60,21 +60,28 @@ export async function handleRegistrations(req, res) {
         });
       }
 
-      const requiredPlayers = tournament.playersPerTeam || 7;
-      if (!Array.isArray(players) || players.length !== requiredPlayers) {
-        return res.status(400).json({
-          success: false,
-          message: `Exactly ${requiredPlayers} players are required for this tournament.`,
-        });
-      }
-
       const normalizedTeamName = teamName.trim().toLowerCase();
       const normalizedCaptainPhone = normalizePhone(captainPhone);
+      const normalizedSecondaryPhone = normalizePhone(secondaryPhone);
 
       if (normalizedCaptainPhone.length < 10) {
         return res.status(400).json({
           success: false,
-          message: 'Please enter a valid 10-digit mobile number for Captain.',
+          message: 'Please enter a valid 10-digit primary mobile number for Captain.',
+        });
+      }
+
+      if (normalizedSecondaryPhone.length < 10) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please enter a valid 10-digit secondary / alternate mobile number.',
+        });
+      }
+
+      if (normalizedCaptainPhone === normalizedSecondaryPhone) {
+        return res.status(400).json({
+          success: false,
+          message: 'Primary and secondary mobile numbers must be different.',
         });
       }
 
@@ -85,65 +92,23 @@ export async function handleRegistrations(req, res) {
       if (existingTeamName) {
         return res.status(400).json({
           success: false,
-          message: 'This team name is already registered. Please use another team name.',
+          message: 'This team name is already registered. Please choose another name.',
         });
       }
 
-      const existingCaptain = await Team.findOne({
+      const existingPhone = await Team.findOne({
         tournament: tournament._id,
-        captainPhone: normalizedCaptainPhone,
+        $or: [
+          { captainPhone: normalizedCaptainPhone },
+          { secondaryPhone: normalizedCaptainPhone },
+          { captainPhone: normalizedSecondaryPhone },
+          { secondaryPhone: normalizedSecondaryPhone },
+        ],
       });
-      if (existingCaptain) {
+      if (existingPhone) {
         return res.status(400).json({
           success: false,
-          message: 'This mobile number is already registered in this tournament.',
-        });
-      }
-
-      const normalizedPlayerPhones = new Set();
-      const playersToCreate = [];
-
-      for (let i = 0; i < players.length; i++) {
-        const p = players[i];
-        if (!p.name || !p.phone) {
-          return res.status(400).json({
-            success: false,
-            message: `Player #${i + 1} name and mobile number are required.`,
-          });
-        }
-
-        const pPhone = normalizePhone(p.phone);
-        if (pPhone.length < 10) {
-          return res.status(400).json({
-            success: false,
-            message: `Player #${i + 1} (${p.name}) has an invalid 10-digit mobile number.`,
-          });
-        }
-
-        if (normalizedPlayerPhones.has(pPhone)) {
-          return res.status(400).json({
-            success: false,
-            message: `Duplicate phone number (${pPhone}) found within your team player list.`,
-          });
-        }
-        normalizedPlayerPhones.add(pPhone);
-
-        const existingPlayer = await Player.findOne({
-          tournament: tournament._id,
-          phone: pPhone,
-        });
-
-        if (existingPlayer) {
-          return res.status(400).json({
-            success: false,
-            message: `This mobile number is already registered in this tournament. (${pPhone} - ${p.name})`,
-          });
-        }
-
-        playersToCreate.push({
-          name: p.name.trim(),
-          phone: pPhone,
-          isCaptain: p.isCaptain || pPhone === normalizedCaptainPhone,
+          message: 'One of these mobile numbers is already registered for another team in this tournament.',
         });
       }
 
@@ -156,18 +121,33 @@ export async function handleRegistrations(req, res) {
         normalizedName: normalizedTeamName,
         captainName: captainName.trim(),
         captainPhone: normalizedCaptainPhone,
+        secondaryPhone: normalizedSecondaryPhone,
         logo: logo.trim(),
         registrationId,
         status: 'REGISTERED',
       });
 
-      const playerDocs = playersToCreate.map((p) => ({
-        tournament: tournament._id,
-        team: team._id,
-        name: p.name,
-        phone: p.phone,
-        isCaptain: p.isCaptain,
-      }));
+      // Auto-create Player squad entries with Captain as Player 1
+      const requiredPlayers = tournament.playersPerTeam || 7;
+      const playerDocs = [
+        {
+          tournament: tournament._id,
+          team: team._id,
+          name: captainName.trim(),
+          phone: normalizedCaptainPhone,
+          isCaptain: true,
+        },
+      ];
+
+      for (let i = 2; i <= requiredPlayers; i++) {
+        playerDocs.push({
+          tournament: tournament._id,
+          team: team._id,
+          name: `${teamName.trim()} Player ${i}`,
+          phone: '',
+          isCaptain: false,
+        });
+      }
 
       await Player.insertMany(playerDocs);
 
@@ -179,6 +159,8 @@ export async function handleRegistrations(req, res) {
           id: team._id,
           name: team.name,
           captainName: team.captainName,
+          captainPhone: team.captainPhone,
+          secondaryPhone: team.secondaryPhone,
           registrationId: team.registrationId,
           tournamentName: tournament.name,
           playerCount: playerDocs.length,
@@ -187,18 +169,10 @@ export async function handleRegistrations(req, res) {
     } catch (error) {
       console.error('Registration error:', error);
       if (error.code === 11000) {
-        if (error.keyPattern?.normalizedName) {
-          return res.status(400).json({
-            success: false,
-            message: 'This team name is already registered. Please use another team name.',
-          });
-        }
-        if (error.keyPattern?.captainPhone || error.keyPattern?.phone) {
-          return res.status(400).json({
-            success: false,
-            message: 'This mobile number is already registered in this tournament.',
-          });
-        }
+        return res.status(400).json({
+          success: false,
+          message: 'Team name or mobile number is already registered in this tournament.',
+        });
       }
       return res.status(500).json({ success: false, message: error.message || 'Registration failed' });
     }
@@ -219,7 +193,12 @@ export async function handleRegistrations(req, res) {
 
       if (search) {
         const searchRegex = new RegExp(search, 'i');
-        filter.$or = [{ name: searchRegex }, { captainName: searchRegex }, { captainPhone: searchRegex }];
+        filter.$or = [
+          { name: searchRegex },
+          { captainName: searchRegex },
+          { captainPhone: searchRegex },
+          { secondaryPhone: searchRegex },
+        ];
       }
 
       const teams = await Team.find(filter)
@@ -280,7 +259,7 @@ export async function handleRegistrationDetail(req, res, id) {
 
   if (req.method === 'PUT') {
     try {
-      const { name, captainName, captainPhone, status } = req.body || {};
+      const { name, captainName, captainPhone, secondaryPhone, status, players } = req.body || {};
       const team = await Team.findOne(query);
       if (!team) {
         return res.status(404).json({ success: false, message: 'Registration not found' });
@@ -292,14 +271,29 @@ export async function handleRegistrationDetail(req, res, id) {
       }
       if (captainName) team.captainName = captainName.trim();
       if (captainPhone) team.captainPhone = captainPhone.trim();
+      if (secondaryPhone !== undefined) team.secondaryPhone = secondaryPhone.trim();
       if (status) team.status = status;
 
       await team.save();
 
+      // If admin updated player names
+      if (Array.isArray(players) && players.length > 0) {
+        for (const p of players) {
+          if (p._id && p.name) {
+            await Player.findByIdAndUpdate(p._id, { name: p.name.trim(), phone: p.phone || '' });
+          }
+        }
+      }
+
+      const updatedPlayers = await Player.find({ team: team._id }).sort({ isCaptain: -1 });
+
       return res.status(200).json({
         success: true,
         message: 'Registration updated successfully',
-        team,
+        team: {
+          ...team.toObject(),
+          players: updatedPlayers,
+        },
       });
     } catch (error) {
       return res.status(500).json({ success: false, message: error.message || 'Error updating registration' });

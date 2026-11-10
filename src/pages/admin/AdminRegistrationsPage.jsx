@@ -250,7 +250,7 @@ export default function AdminRegistrationsPage() {
                       <span className="font-bold text-white">{team.captainName}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Phone:</span>
+                      <span className="text-slate-400">Phone 1 (Capt):</span>
                       <a
                         href={`tel:${team.captainPhone}`}
                         className="text-lime-400 font-mono font-bold flex items-center gap-1 hover:underline"
@@ -258,6 +258,17 @@ export default function AdminRegistrationsPage() {
                         <Phone className="w-3 h-3" /> {team.captainPhone}
                       </a>
                     </div>
+                    {team.secondaryPhone && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400">Phone 2 (Alt):</span>
+                        <a
+                          href={`tel:${team.secondaryPhone}`}
+                          className="text-slate-300 font-mono font-semibold flex items-center gap-1 hover:underline"
+                        >
+                          <Phone className="w-3 h-3 text-slate-500" /> {team.secondaryPhone}
+                        </a>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between pt-1 border-t border-slate-800/40 text-[11px]">
                       <span className="text-slate-400">Registered:</span>
                       <span className="text-slate-300">
@@ -325,8 +336,13 @@ export default function AdminRegistrationsPage() {
                       <td className="py-3.5 px-4 text-slate-300">
                         <div className="font-semibold text-white">{team.captainName}</div>
                         <div className="text-[11px] text-slate-400 flex items-center gap-1 font-mono">
-                          <Phone className="w-3 h-3 text-slate-500" /> {team.captainPhone}
+                          <Phone className="w-3 h-3 text-lime-400" /> P1: {team.captainPhone}
                         </div>
+                        {team.secondaryPhone && (
+                          <div className="text-[11px] text-slate-400 flex items-center gap-1 font-mono mt-0.5">
+                            <span className="text-slate-500 text-[10px]">P2:</span> {team.secondaryPhone}
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-3.5 px-4 font-semibold text-slate-300 font-mono">
@@ -404,14 +420,26 @@ export default function AdminRegistrationsPage() {
             </div>
 
             {/* Captain details */}
-            <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 mb-6 flex items-center justify-between">
+            <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">Captain Name</span>
                 <span className="text-sm font-bold text-white">{selectedTeam.captainName}</span>
               </div>
-              <div className="text-right">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Mobile Number</span>
-                <span className="font-mono text-sm font-bold text-lime-400">{selectedTeam.captainPhone}</span>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Primary Mobile (1)</span>
+                <a href={`tel:${selectedTeam.captainPhone}`} className="font-mono text-sm font-bold text-lime-400 hover:underline">
+                  {selectedTeam.captainPhone}
+                </a>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Secondary Mobile (2)</span>
+                {selectedTeam.secondaryPhone ? (
+                  <a href={`tel:${selectedTeam.secondaryPhone}`} className="font-mono text-sm font-semibold text-slate-300 hover:underline">
+                    {selectedTeam.secondaryPhone}
+                  </a>
+                ) : (
+                  <span className="font-mono text-sm text-slate-500">-</span>
+                )}
               </div>
             </div>
 

@@ -26,7 +26,12 @@ const TeamSchema = new mongoose.Schema(
     },
     captainPhone: {
       type: String,
-      required: [true, 'Captain phone number is required'],
+      required: [true, 'Captain primary phone number is required'],
+      trim: true,
+    },
+    secondaryPhone: {
+      type: String,
+      default: '',
       trim: true,
     },
     logo: {
@@ -57,4 +62,5 @@ const TeamSchema = new mongoose.Schema(
 TeamSchema.index({ tournament: 1, normalizedName: 1 }, { unique: true });
 TeamSchema.index({ tournament: 1, captainPhone: 1 }, { unique: true });
 
-export default mongoose.models.Team || mongoose.model('Team', TeamSchema);
+delete mongoose.models.Team;
+export default mongoose.model('Team', TeamSchema);

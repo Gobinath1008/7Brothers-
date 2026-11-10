@@ -55,8 +55,8 @@ export function downloadAllRegistrationsPdf(tournament, registrations, stats) {
       index + 1,
       reg.registrationId || `REG-${index + 1}`,
       reg.teamName || reg.name || 'Team',
-      `${reg.captainName}\n${reg.captainPhone}`,
-      playersList || 'No players listed',
+      `${reg.captainName}\nPhone 1: ${reg.captainPhone}${reg.secondaryPhone ? `\nPhone 2: ${reg.secondaryPhone}` : ''}`,
+      playersList || 'Squad to be finalized',
       reg.status || 'CONFIRMED',
     ]);
   });

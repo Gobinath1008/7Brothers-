@@ -9,21 +9,17 @@ export function downloadRegistrationsCsv(tournament, registrations) {
   }
 
   const rows = [
-    ['Registration ID', 'Team Name', 'Captain Name', 'Captain Mobile', 'Player Count', 'Players (Name & Phone)', 'Registered Date', 'Status'],
+    ['Registration ID', 'Team Name', 'Captain Name', 'Primary Mobile', 'Secondary Mobile', 'Player Count', 'Registered Date', 'Status'],
   ];
 
   registrations.forEach((reg) => {
-    const playersStr = (reg.players || [])
-      .map((p) => `${p.name} (${p.phone})${p.isCaptain ? ' [C]' : ''}`)
-      .join('; ');
-
     rows.push([
       reg.registrationId || '',
       `"${reg.teamName || reg.name || ''}"`,
       `"${reg.captainName || ''}"`,
       `"${reg.captainPhone || ''}"`,
+      `"${reg.secondaryPhone || ''}"`,
       reg.playerCount || (reg.players || []).length,
-      `"${playersStr}"`,
       new Date(reg.createdAt).toLocaleDateString('en-IN'),
       reg.status || 'REGISTERED',
     ]);
