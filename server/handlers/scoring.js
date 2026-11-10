@@ -25,16 +25,16 @@ export async function handleScoreBall(req, res) {
       isWicket = false,
       wicketType = 'NONE',
       playerOutId = null,
-      strikerId,
-      nonStrikerId,
-      bowlerId,
+      strikerId = null,
+      nonStrikerId = null,
+      bowlerId = null,
       newBatsmanId = null,
     } = req.body || {};
 
-    if (!matchId || !strikerId || !nonStrikerId || !bowlerId) {
+    if (!matchId) {
       return res.status(400).json({
         success: false,
-        message: 'Match ID, Striker, Non-Striker, and Bowler are required.',
+        message: 'Match ID is required.',
       });
     }
 
@@ -87,7 +87,11 @@ export async function handleScoreBall(req, res) {
     const totalRunsThisBall = batRuns + extrasTotal;
     innings.runs += totalRunsThisBall;
 
+    const deliveryOverNumber = innings.overs;
+    let ballInOverNumber = innings.balls;
+
     if (isLegal) {
+      ballInOverNumber += 1;
       innings.balls += 1;
       if (innings.balls >= 6) {
         innings.overs += 1;
@@ -99,14 +103,28 @@ export async function handleScoreBall(req, res) {
     if (isWicket) {
       innings.wickets += 1;
       const targetOutId = playerOutId || strikerId;
-      playerOutDoc = await Player.findById(targetOutId);
+      if (targetOutId) {
+        try { playerOutDoc = await Player.findById(targetOutId); } catch (_) {}
+      }
     }
 
-    const [strikerDoc, nonStrikerDoc, bowlerDoc] = await Promise.all([
-      Player.findById(strikerId),
-      Player.findById(nonStrikerId),
-      Player.findById(bowlerId),
-    ]);
+    let strikerDoc = null;
+    let nonStrikerDoc = null;
+    let bowlerDoc = null;
+
+    if (strikerId) {
+      try { strikerDoc = await Player.findById(strikerId); } catch (_) {}
+    }
+    if (nonStrikerId) {
+      try { nonStrikerDoc = await Player.findById(nonStrikerId); } catch (_) {}
+    }
+    if (bowlerId) {
+      try { bowlerDoc = await Player.findById(bowlerId); } catch (_) {}
+    }
+
+    const strikerName = strikerDoc?.name || 'Batter';
+    const nonStrikerName = nonStrikerDoc?.name || 'Non-Striker';
+    const bowlerName = bowlerDoc?.name || 'Bowler';
 
     let ballSummary = String(batRuns);
     if (isWicket) {
@@ -125,79 +143,84 @@ export async function handleScoreBall(req, res) {
     await BallDelivery.create({
       match: match._id,
       innings: currentInnNum,
-      overNumber: innings.overs,
-      ballInOver: innings.balls,
-      striker: { id: strikerDoc._id, name: strikerDoc.name },
-      nonStriker: { id: nonStrikerDoc._id, name: nonStrikerDoc.name },
-      bowler: { id: bowlerDoc._id, name: bowlerDoc.name },
+      overNumber: deliveryOverNumber,
+      ballInOver: ballInOverNumber,
+      striker: { id: strikerDoc?._id || null, name: strikerName },
+      nonStriker: { id: nonStrikerDoc?._id || null, name: nonStrikerName },
+      bowler: { id: bowlerDoc?._id || null, name: bowlerName },
       runsBat: batRuns,
       extraRuns: extrasTotal,
       extraType,
       isLegalDelivery: isLegal,
       isWicket,
-      wicketType: isWicket ? wicketType : 'NONE',
+      wicketType: isWicket ? (wicketType || 'OUT') : 'NONE',
       playerOut: playerOutDoc ? { id: playerOutDoc._id, name: playerOutDoc.name } : null,
       ballSummary,
+      totalRuns: totalRunsThisBall,
     });
 
-    let strikerCard = match.battingCard.find((b) => b.player && b.player.toString() === strikerId.toString());
-    if (!strikerCard) {
-      match.battingCard.push({
-        player: strikerDoc._id,
-        playerName: strikerDoc.name,
-        team: innings.battingTeam,
-        runs: 0,
-        balls: 0,
-        fours: 0,
-        sixes: 0,
-        strikeRate: 0,
-        isOut: false,
-        dismissal: 'not out',
-        onStrike: true,
-        isBatting: true,
-      });
-      strikerCard = match.battingCard[match.battingCard.length - 1];
+    if (strikerDoc) {
+      let strikerCard = match.battingCard.find((b) => b.player && b.player.toString() === strikerDoc._id.toString());
+      if (!strikerCard) {
+        match.battingCard.push({
+          player: strikerDoc._id,
+          playerName: strikerDoc.name,
+          team: innings.battingTeam,
+          runs: 0,
+          balls: 0,
+          fours: 0,
+          sixes: 0,
+          strikeRate: 0,
+          isOut: false,
+          dismissal: 'not out',
+          onStrike: true,
+          isBatting: true,
+        });
+        strikerCard = match.battingCard[match.battingCard.length - 1];
+      }
+
+      if (!isWide) {
+        strikerCard.balls += 1;
+      }
+      strikerCard.runs += batRuns;
+      if (batRuns === 4) strikerCard.fours += 1;
+      if (batRuns === 6) strikerCard.sixes += 1;
+      strikerCard.strikeRate = strikerCard.balls > 0 ? Number(((strikerCard.runs / strikerCard.balls) * 100).toFixed(1)) : 0;
+
+      if (isWicket && (!playerOutId || playerOutId.toString() === strikerDoc._id.toString())) {
+        strikerCard.isOut = true;
+        strikerCard.isBatting = false;
+        strikerCard.onStrike = false;
+        strikerCard.dismissal = `${(wicketType || 'out').toLowerCase()}${bowlerDoc ? ` b ${bowlerDoc.name}` : ''}`;
+      }
     }
 
-    if (!isWide) {
-      strikerCard.balls += 1;
-    }
-    strikerCard.runs += batRuns;
-    if (batRuns === 4) strikerCard.fours += 1;
-    if (batRuns === 6) strikerCard.sixes += 1;
-    strikerCard.strikeRate = strikerCard.balls > 0 ? Number(((strikerCard.runs / strikerCard.balls) * 100).toFixed(1)) : 0;
+    if (nonStrikerDoc) {
+      let nonStrikerCard = match.battingCard.find((b) => b.player && b.player.toString() === nonStrikerDoc._id.toString());
+      if (!nonStrikerCard) {
+        match.battingCard.push({
+          player: nonStrikerDoc._id,
+          playerName: nonStrikerDoc.name,
+          team: innings.battingTeam,
+          runs: 0,
+          balls: 0,
+          fours: 0,
+          sixes: 0,
+          strikeRate: 0,
+          isOut: false,
+          dismissal: 'not out',
+          onStrike: false,
+          isBatting: true,
+        });
+        nonStrikerCard = match.battingCard[match.battingCard.length - 1];
+      }
 
-    if (isWicket && (!playerOutId || playerOutId.toString() === strikerId.toString())) {
-      strikerCard.isOut = true;
-      strikerCard.isBatting = false;
-      strikerCard.onStrike = false;
-      strikerCard.dismissal = `${wicketType.toLowerCase()} b ${bowlerDoc.name}`;
-    }
-
-    let nonStrikerCard = match.battingCard.find((b) => b.player && b.player.toString() === nonStrikerId.toString());
-    if (!nonStrikerCard) {
-      match.battingCard.push({
-        player: nonStrikerDoc._id,
-        playerName: nonStrikerDoc.name,
-        team: innings.battingTeam,
-        runs: 0,
-        balls: 0,
-        fours: 0,
-        sixes: 0,
-        strikeRate: 0,
-        isOut: false,
-        dismissal: 'not out',
-        onStrike: false,
-        isBatting: true,
-      });
-      nonStrikerCard = match.battingCard[match.battingCard.length - 1];
-    }
-
-    if (isWicket && playerOutId && playerOutId.toString() === nonStrikerId.toString()) {
-      nonStrikerCard.isOut = true;
-      nonStrikerCard.isBatting = false;
-      nonStrikerCard.onStrike = false;
-      nonStrikerCard.dismissal = `${wicketType.toLowerCase()}`;
+      if (isWicket && playerOutId && playerOutId.toString() === nonStrikerDoc._id.toString()) {
+        nonStrikerCard.isOut = true;
+        nonStrikerCard.isBatting = false;
+        nonStrikerCard.onStrike = false;
+        nonStrikerCard.dismissal = `${(wicketType || 'out').toLowerCase()}`;
+      }
     }
 
     if (isWicket && newBatsmanId) {
@@ -220,49 +243,51 @@ export async function handleScoreBall(req, res) {
       }
     }
 
-    let bowlerCard = match.bowlingCard.find((b) => b.player && b.player.toString() === bowlerId.toString());
-    if (!bowlerCard) {
-      match.bowlingCard.push({
-        player: bowlerDoc._id,
-        playerName: bowlerDoc.name,
-        team: innings.bowlingTeam,
-        overs: 0,
-        balls: 0,
-        maidens: 0,
-        runsConceded: 0,
-        wickets: 0,
-        economy: 0,
-        isCurrentBowler: true,
-      });
-      bowlerCard = match.bowlingCard[match.bowlingCard.length - 1];
-    }
-
-    if (isLegal) {
-      bowlerCard.balls += 1;
-      if (bowlerCard.balls >= 6) {
-        bowlerCard.overs += 1;
-        bowlerCard.balls = 0;
+    if (bowlerDoc) {
+      let bowlerCard = match.bowlingCard.find((b) => b.player && b.player.toString() === bowlerDoc._id.toString());
+      if (!bowlerCard) {
+        match.bowlingCard.push({
+          player: bowlerDoc._id,
+          playerName: bowlerDoc.name,
+          team: innings.bowlingTeam,
+          overs: 0,
+          balls: 0,
+          maidens: 0,
+          runsConceded: 0,
+          wickets: 0,
+          economy: 0,
+          isCurrentBowler: true,
+        });
+        bowlerCard = match.bowlingCard[match.bowlingCard.length - 1];
       }
+
+      if (isLegal) {
+        bowlerCard.balls += 1;
+        if (bowlerCard.balls >= 6) {
+          bowlerCard.overs += 1;
+          bowlerCard.balls = 0;
+        }
+      }
+      if (!isBye && !isLegBye) {
+        bowlerCard.runsConceded += totalRunsThisBall;
+      }
+      if (isWicket && wicketType !== 'RUN_OUT') {
+        bowlerCard.wickets += 1;
+      }
+      const totalBowlerOvers = bowlerCard.overs + bowlerCard.balls / 6;
+      bowlerCard.economy = totalBowlerOvers > 0 ? Number((bowlerCard.runsConceded / totalBowlerOvers).toFixed(1)) : bowlerCard.runsConceded;
     }
-    if (!isBye && !isLegBye) {
-      bowlerCard.runsConceded += totalRunsThisBall;
-    }
-    if (isWicket && wicketType !== 'RUN_OUT') {
-      bowlerCard.wickets += 1;
-    }
-    const totalBowlerOvers = bowlerCard.overs + bowlerCard.balls / 6;
-    bowlerCard.economy = totalBowlerOvers > 0 ? Number((bowlerCard.runsConceded / totalBowlerOvers).toFixed(1)) : bowlerCard.runsConceded;
 
     let nextStriker = strikerId;
     let nextNonStriker = nonStrikerId;
 
-    if (batRuns % 2 === 1) {
+    if (batRuns % 2 === 1 && strikerId && nonStrikerId) {
       nextStriker = nonStrikerId;
       nextNonStriker = strikerId;
     }
 
     const isOverComplete = isLegal && innings.balls === 0;
-    if (isOverComplete) {
+    if (isOverComplete && nextStriker && nextNonStriker) {
       const temp = nextStriker;
       nextStriker = nextNonStriker;
       nextNonStriker = temp;
@@ -496,6 +521,53 @@ export async function handleScoreStatus(req, res) {
       });
     }
 
+    if (action === 'NEXT_OVER') {
+      const currentInnNum = match.currentInnings || 1;
+      const innings = currentInnNum === 1 ? match.innings1 : match.innings2;
+      const tournament = match.tournament;
+      const maxOvers = tournament?.oversPerMatch || 5;
+
+      innings.overs += 1;
+      innings.balls = 0;
+
+      const isInnings1Finished = currentInnNum === 1 && innings.overs >= maxOvers;
+      if (isInnings1Finished) {
+        match.innings1.completed = true;
+        match.currentInnings = 2;
+        match.innings2.target = (match.innings1.runs || 0) + 1;
+        match.innings2.battingTeam = match.innings1.bowlingTeam;
+        match.innings2.bowlingTeam = match.innings1.battingTeam;
+      } else if (currentInnNum === 2 && innings.overs >= maxOvers) {
+        match.innings2.completed = true;
+        match.status = 'COMPLETED';
+        const chasingRuns = match.innings2.runs;
+        const target = match.innings2.target || (match.innings1.runs || 0) + 1;
+        if (chasingRuns >= target) {
+          match.winner = match.innings2.battingTeam;
+          match.loser = match.innings2.bowlingTeam;
+          const winDoc = await Team.findById(match.winner);
+          match.winMargin = `${winDoc?.name || 'Batting Team'} won the match! 🔥`;
+        } else if (chasingRuns === target - 1) {
+          match.status = 'TIED';
+          match.winMargin = 'Match Tied! Super Over required ⚔️';
+        } else {
+          match.winner = match.innings1.battingTeam;
+          match.loser = match.innings1.bowlingTeam;
+          const winDoc = await Team.findById(match.winner);
+          const marginRuns = target - 1 - chasingRuns;
+          match.winMargin = `${winDoc?.name || 'Bowling Team'} won by ${marginRuns} run${marginRuns === 1 ? '' : 's'}! 🔥`;
+        }
+      }
+
+      await match.save();
+
+      return res.status(200).json({
+        success: true,
+        message: `Over completed. Starting Over ${innings.overs + 1}`,
+        match,
+      });
+    }
+
     if (action === 'SUPER_OVER') {
       match.isSuperOver = true;
       match.status = 'LIVE';
@@ -571,9 +643,9 @@ export async function handleScoreUndo(req, res) {
       innings.wickets = Math.max(0, innings.wickets - 1);
     }
 
-    const strikerCard = match.battingCard.find(
-      (b) => b.player && b.player.toString() === lastBall.striker.id.toString()
-    );
+    const strikerCard = lastBall.striker?.id
+      ? match.battingCard.find((b) => b.player && b.player.toString() === lastBall.striker.id.toString())
+      : null;
     if (strikerCard) {
       strikerCard.runs = Math.max(0, strikerCard.runs - (lastBall.runsBat || 0));
       if (lastBall.extraType !== 'WIDE') {
@@ -589,9 +661,9 @@ export async function handleScoreUndo(req, res) {
       }
     }
 
-    const bowlerCard = match.bowlingCard.find(
-      (b) => b.player && b.player.toString() === lastBall.bowler.id.toString()
-    );
+    const bowlerCard = lastBall.bowler?.id
+      ? match.bowlingCard.find((b) => b.player && b.player.toString() === lastBall.bowler.id.toString())
+      : null;
     if (bowlerCard) {
       if (lastBall.isLegalDelivery) {
         if (bowlerCard.balls === 0 && bowlerCard.overs > 0) {

@@ -64,7 +64,7 @@ export default function MatchDetailsPage() {
     );
   }
 
-  const { match, recentDeliveries = [] } = matchData;
+  const { match, recentDeliveries = [], allDeliveries = [] } = matchData;
   const isLive = match.status === 'LIVE';
   const isCompleted = match.status === 'COMPLETED';
 
@@ -72,6 +72,31 @@ export default function MatchDetailsPage() {
   const inn = activeInningsTab === 1 ? match.innings1 : match.innings2;
   const battingTeamId = inn?.battingTeam;
   const bowlingTeamId = inn?.bowlingTeam;
+
+  // Group deliveries for active innings by over
+  const innDeliveries = (allDeliveries.length > 0 ? allDeliveries : recentDeliveries).filter(
+    (d) => d.innings === activeInningsTab
+  );
+
+  const oversMap = {};
+  innDeliveries.forEach((d) => {
+    const ov = d.overNumber ?? 0;
+    if (!oversMap[ov]) {
+      oversMap[ov] = {
+        overNumber: ov,
+        balls: [],
+        runs: 0,
+        wickets: 0,
+        extras: 0,
+      };
+    }
+    oversMap[ov].balls.push(d);
+    oversMap[ov].runs += d.totalRuns ?? ((d.runsBat || 0) + (d.extraRuns || 0));
+    if (d.isWicket) oversMap[ov].wickets += 1;
+    if (d.extraType && d.extraType !== 'NONE') oversMap[ov].extras += d.extraRuns || 1;
+  });
+
+  const oversList = Object.values(oversMap).sort((a, b) => a.overNumber - b.overNumber);
 
   const battingTeamName =
     battingTeamId === match.teamA?._id
@@ -255,6 +280,66 @@ export default function MatchDetailsPage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Overs Breakdown by Innings */}
+      {oversList.length > 0 && (
+        <div className="glass-panel rounded-2xl p-4 sm:p-5 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+            <span className="text-xs font-black uppercase text-white flex items-center gap-1.5">
+              <Activity className="w-4 h-4 text-lime-400" /> Over by Over Runs Breakdown
+            </span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase">
+              Innings {activeInningsTab}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+            {oversList.map((ovData) => (
+              <div
+                key={ovData.overNumber}
+                className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-2"
+              >
+                <div>
+                  <div className="text-xs font-extrabold text-white">
+                    Over {ovData.overNumber + 1}
+                  </div>
+                  <div className="flex items-center gap-1 mt-1 flex-wrap">
+                    {ovData.balls.map((b, i) => (
+                      <span
+                        key={i}
+                        className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-bold ${
+                          b.isWicket
+                            ? 'bg-red-500 text-white font-black'
+                            : b.runsBat === 4
+                            ? 'bg-lime-500 text-slate-950 font-black'
+                            : b.runsBat === 6
+                            ? 'bg-purple-600 text-white font-black'
+                            : b.extraType !== 'NONE'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            : 'bg-slate-800 text-slate-300'
+                        }`}
+                      >
+                        {b.ballSummary}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="text-right flex-shrink-0">
+                  <div className="font-mono text-base font-black text-lime-400 leading-none">
+                    {ovData.runs} <span className="text-[9px] font-sans text-slate-400 font-bold">runs</span>
+                  </div>
+                  {ovData.wickets > 0 && (
+                    <div className="text-[10px] text-red-400 font-bold mt-1">
+                      {ovData.wickets} wkt{ovData.wickets !== 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

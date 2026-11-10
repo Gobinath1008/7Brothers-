@@ -117,9 +117,10 @@ export async function handleMatchDetail(req, res, id) {
         teamBPlayers = await Player.find({ team: match.teamB._id }).sort({ isCaptain: -1, name: 1 });
       }
 
-      const recentDeliveries = await BallDelivery.find({ match: match._id })
-        .sort({ createdAt: -1 })
-        .limit(24);
+      const allDeliveries = await BallDelivery.find({ match: match._id })
+        .sort({ createdAt: 1 });
+
+      const recentDeliveries = [...allDeliveries].reverse().slice(0, 30);
 
       return res.status(200).json({
         success: true,
@@ -127,6 +128,7 @@ export async function handleMatchDetail(req, res, id) {
         teamAPlayers,
         teamBPlayers,
         recentDeliveries,
+        allDeliveries,
       });
     } catch (error) {
       return res.status(500).json({ success: false, message: error.message || 'Error fetching match' });

@@ -1,47 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { matchService, scoringService, tournamentService } from '../../services/api';
+import { matchService, scoringService } from '../../services/api';
 import {
   Radio,
   RotateCcw,
   Trophy,
-  ArrowRightLeft,
   AlertCircle,
   CheckCircle,
   X,
-  ChevronDown,
+  ChevronRight,
   Shield,
   Activity,
   Flame,
+  ArrowRight,
+  Eye,
+  Calendar,
 } from 'lucide-react';
 
 export default function AdminLiveScoringPage() {
   const [searchParams] = useSearchParams();
   const matchParam = searchParams.get('match');
 
-  const [tournaments, setTournaments] = useState([]);
   const [matches, setMatches] = useState([]);
   const [selectedMatchId, setSelectedMatchId] = useState(matchParam || '');
   const [matchData, setMatchData] = useState(null);
-
-  // Lineup states
-  const [teamAPlayers, setTeamAPlayers] = useState([]);
-  const [teamBPlayers, setTeamBPlayers] = useState([]);
-
-  // Active scorer selection states
-  const [strikerId, setStrikerId] = useState('');
-  const [nonStrikerId, setNonStrikerId] = useState('');
-  const [bowlerId, setBowlerId] = useState('');
+  const [deliveries, setDeliveries] = useState([]);
 
   // Modals
   const [tossModalOpen, setTossModalOpen] = useState(false);
   const [tossWonBy, setTossWonBy] = useState('');
   const [tossChoice, setTossChoice] = useState('BAT');
-
-  const [wicketModalOpen, setWicketModalOpen] = useState(false);
-  const [wicketType, setWicketType] = useState('BOWLED');
-  const [playerOutId, setPlayerOutId] = useState('');
-  const [newBatsmanId, setNewBatsmanId] = useState('');
+  const [selectedOverModal, setSelectedOverModal] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [recording, setRecording] = useState(false);
@@ -56,7 +45,6 @@ export default function AdminLiveScoringPage() {
         if (res.success && res.matches) {
           setMatches(res.matches);
           if (!selectedMatchId && res.matches.length > 0) {
-            // Pick live match first, else first upcoming match
             const liveMatch = res.matches.find((m) => m.status === 'LIVE') || res.matches[0];
             setSelectedMatchId(liveMatch._id);
           }
@@ -68,36 +56,19 @@ export default function AdminLiveScoringPage() {
     loadMatches();
   }, []);
 
-  // Load specific match details
+  // Load match details & deliveries
   const fetchCurrentMatch = async () => {
     if (!selectedMatchId) return;
     try {
       const res = await matchService.getById(selectedMatchId);
       if (res.success && res.match) {
         setMatchData(res.match);
-        setTeamAPlayers(res.teamAPlayers || []);
-        setTeamBPlayers(res.teamBPlayers || []);
+        setDeliveries(res.allDeliveries || res.recentDeliveries || []);
 
         const m = res.match;
-        // If toss not set, open toss modal
         if (!m.toss?.wonBy && m.teamA && m.teamB && m.status !== 'COMPLETED') {
           setTossWonBy(m.teamA._id);
           setTossModalOpen(true);
-        }
-
-        // Auto select current striker & non-striker
-        const currentBatters = (m.battingCard || []).filter((b) => b.isBatting && !b.isOut);
-        if (currentBatters.length >= 1 && !strikerId) {
-          setStrikerId(currentBatters[0].player);
-        }
-        if (currentBatters.length >= 2 && !nonStrikerId) {
-          setNonStrikerId(currentBatters[1].player);
-        }
-
-        // Auto select current bowler
-        const curBowler = (m.bowlingCard || []).find((bw) => bw.isCurrentBowler);
-        if (curBowler && !bowlerId) {
-          setBowlerId(curBowler.player);
         }
       }
     } catch (err) {
@@ -118,7 +89,7 @@ export default function AdminLiveScoringPage() {
         <h2 className="text-xl font-bold text-white mb-2">Live Scorer Console</h2>
         <p className="text-xs text-slate-400 mb-6">Select a match to start scoring deliveries</p>
         {matches.length > 0 && (
-          <div className="max-w-md mx-auto">
+          <div className="max-w-md mx-auto px-4">
             <select
               value={selectedMatchId}
               onChange={(e) => setSelectedMatchId(e.target.value)}
@@ -139,15 +110,55 @@ export default function AdminLiveScoringPage() {
   const currentInnNum = matchData.currentInnings || 1;
   const inn = currentInnNum === 1 ? matchData.innings1 : matchData.innings2;
   const isCompleted = matchData.status === 'COMPLETED';
-
-  // Batting and Bowling squads
-  const battingSquad = inn.battingTeam === matchData.teamA?._id ? teamAPlayers : teamBPlayers;
-  const bowlingSquad = inn.bowlingTeam === matchData.teamA?._id ? teamAPlayers : teamBPlayers;
+  const totalOversAllowed = matchData.tournament?.oversPerMatch || 5;
 
   const battingTeamName =
     inn.battingTeam === matchData.teamA?._id ? matchData.teamA?.name : matchData.teamB?.name;
   const bowlingTeamName =
-    inn.bowlingTeam === matchData.teamA?._id ? matchData.teamA?.name : matchData.teamB?.name;
+    bowlingTeamId() === matchData.teamA?._id ? matchData.teamA?.name : matchData.teamB?.name;
+
+  function bowlingTeamId() {
+    return inn.bowlingTeam === matchData.teamA?._id ? matchData.teamA?._id : matchData.teamB?._id;
+  }
+
+  // Group deliveries for active innings by overNumber
+  const innDeliveries = (deliveries || []).filter((d) => d.innings === currentInnNum);
+  const oversMap = {};
+  innDeliveries.forEach((d) => {
+    const ov = d.overNumber ?? 0;
+    if (!oversMap[ov]) {
+      oversMap[ov] = {
+        overNumber: ov,
+        balls: [],
+        runs: 0,
+        wickets: 0,
+        extras: 0,
+        legalBalls: 0,
+      };
+    }
+    oversMap[ov].balls.push(d);
+    oversMap[ov].runs += d.totalRuns ?? ((d.runsBat || 0) + (d.extraRuns || 0));
+    if (d.isWicket) oversMap[ov].wickets += 1;
+    if (d.extraType && d.extraType !== 'NONE') oversMap[ov].extras += d.extraRuns || 1;
+    if (d.isLegalDelivery) oversMap[ov].legalBalls += 1;
+  });
+
+  // Current active over data
+  const currentOverIndex = inn.overs ?? 0;
+  const currentOverData = oversMap[currentOverIndex] || {
+    overNumber: currentOverIndex,
+    balls: [],
+    runs: 0,
+    wickets: 0,
+    extras: 0,
+    legalBalls: inn.balls || 0,
+  };
+
+  // Completed overs list for history display
+  const allOversList = Object.values(oversMap).sort((a, b) => a.overNumber - b.overNumber);
+
+  // Check if 6 legal balls bowled in current over
+  const isOverFull = currentOverData.legalBalls >= 6 || (inn.balls === 0 && inn.overs > 0);
 
   // Handle Toss
   const handleSaveToss = async () => {
@@ -167,18 +178,8 @@ export default function AdminLiveScoringPage() {
     }
   };
 
-  // Record normal ball or extras
-  const handleRecordBall = async (runs = 0, extraType = 'NONE') => {
-    if (!strikerId || !nonStrikerId || !bowlerId) {
-      setErrorMsg('Please select Striker, Non-Striker, and Bowler.');
-      return;
-    }
-
-    if (strikerId === nonStrikerId) {
-      setErrorMsg('Striker and Non-Striker cannot be the same player!');
-      return;
-    }
-
+  // Record Ball (Runs, Extras, Wicket) - NO player selection needed!
+  const handleRecordBall = async (runs = 0, extraType = 'NONE', isWicket = false) => {
     setRecording(true);
     setErrorMsg('');
     setAlertMsg('');
@@ -189,68 +190,53 @@ export default function AdminLiveScoringPage() {
         runs,
         extraType,
         extraRuns: 0,
-        isWicket: false,
-        strikerId,
-        nonStrikerId,
-        bowlerId,
+        isWicket,
+        wicketType: isWicket ? 'OUT' : 'NONE',
       });
 
       if (res.success) {
-        if (res.isOverComplete) {
-          setAlertMsg('Over complete! Please select the new bowler.');
-        }
-        if (res.nextStriker) setStrikerId(res.nextStriker);
-        if (res.nextNonStriker) setNonStrikerId(res.nextNonStriker);
         if (res.isMatchComplete) {
           setAlertMsg(`MATCH FINISHED! ${res.winMargin}`);
+        } else if (res.isOverComplete) {
+          setAlertMsg(`Over Complete! 6 balls bowled in Over ${inn.overs + 1}.`);
         }
-        fetchCurrentMatch();
+        await fetchCurrentMatch();
       }
     } catch (err) {
-      setErrorMsg(err.message || 'Error recording ball');
+      setErrorMsg(err.message || 'Error recording delivery');
     } finally {
       setRecording(false);
     }
   };
 
-  // Record Wicket
-  const handleRecordWicket = async () => {
-    if (!strikerId || !nonStrikerId || !bowlerId) {
-      setErrorMsg('Please select Striker, Non-Striker, and Bowler.');
-      return;
-    }
-
-    setRecording(true);
-    setWicketModalOpen(false);
-    setErrorMsg('');
-
+  // Next Over Action: Moves to next over & opens Over Summary Modal to view runs
+  const handleNextOver = async () => {
     try {
-      const res = await scoringService.recordBall({
+      setRecording(true);
+      setErrorMsg('');
+
+      // Find data of the over just completing
+      const completedOvData = oversMap[inn.overs] || {
+        overNumber: inn.overs,
+        runs: currentOverData.runs,
+        wickets: currentOverData.wickets,
+        balls: currentOverData.balls,
+        legalBalls: currentOverData.legalBalls,
+      };
+
+      const res = await scoringService.updateStatus({
         matchId: matchData._id,
-        runs: 0,
-        extraType: 'NONE',
-        isWicket: true,
-        wicketType,
-        playerOutId: playerOutId || strikerId,
-        newBatsmanId: newBatsmanId || null,
-        strikerId,
-        nonStrikerId,
-        bowlerId,
+        action: 'NEXT_OVER',
       });
 
       if (res.success) {
-        if (newBatsmanId) {
-          if (playerOutId === nonStrikerId) {
-            setNonStrikerId(newBatsmanId);
-          } else {
-            setStrikerId(newBatsmanId);
-          }
-        }
-        setNewBatsmanId('');
-        fetchCurrentMatch();
+        // Pop up the Over Summary Modal so admin can view runs in this over!
+        setSelectedOverModal(completedOvData);
+        setAlertMsg(`Over ${completedOvData.overNumber + 1} complete: ${completedOvData.runs} runs scored! Starting next over.`);
+        await fetchCurrentMatch();
       }
     } catch (err) {
-      setErrorMsg(err.message || 'Error recording wicket');
+      setErrorMsg(err.message || 'Error starting next over');
     } finally {
       setRecording(false);
     }
@@ -270,14 +256,7 @@ export default function AdminLiveScoringPage() {
     }
   };
 
-  // Switch Strike manually
-  const handleSwitchStrike = () => {
-    const temp = strikerId;
-    setStrikerId(nonStrikerId);
-    setNonStrikerId(temp);
-  };
-
-  // End Innings Manually
+  // Switch Innings
   const handleSwitchInnings = async () => {
     if (!window.confirm('Close 1st innings and start 2nd innings chasing target?')) return;
     try {
@@ -286,9 +265,6 @@ export default function AdminLiveScoringPage() {
         action: 'SWITCH_INNINGS',
       });
       if (res.success) {
-        setStrikerId('');
-        setNonStrikerId('');
-        setBowlerId('');
         fetchCurrentMatch();
       }
     } catch (err) {
@@ -316,18 +292,42 @@ export default function AdminLiveScoringPage() {
     }
   };
 
+  // Helper for ball badge styling
+  const getBallBadge = (ball) => {
+    if (ball.isWicket) {
+      return { bg: 'bg-red-500 text-white font-black', text: 'W' };
+    }
+    if (ball.extraType === 'WIDE') {
+      return { bg: 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold', text: ball.ballSummary || 'Wd' };
+    }
+    if (ball.extraType === 'NO_BALL') {
+      return { bg: 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold', text: ball.ballSummary || 'Nb' };
+    }
+    if (ball.extraType === 'BYE') {
+      return { bg: 'bg-slate-800 text-slate-300 font-bold', text: `${ball.extraRuns || 1}B` };
+    }
+    if (ball.extraType === 'LEG_BYE') {
+      return { bg: 'bg-slate-800 text-slate-300 font-bold', text: `${ball.extraRuns || 1}LB` };
+    }
+    if (ball.runsBat === 4) {
+      return { bg: 'bg-lime-500 text-slate-950 font-black', text: '4' };
+    }
+    if (ball.runsBat === 6) {
+      return { bg: 'bg-purple-600 text-white font-black', text: '6' };
+    }
+    if (ball.runsBat === 0) {
+      return { bg: 'bg-slate-800 text-slate-400 font-bold', text: '0' };
+    }
+    return { bg: 'bg-sky-500/20 text-sky-300 border border-sky-500/30 font-bold', text: String(ball.runsBat) };
+  };
+
   return (
-    <div className="max-w-2xl mx-auto space-y-4 pb-16">
-      {/* Match Selector Dropdown Strip */}
-      <div className="flex items-center justify-between gap-3 bg-slate-900 p-2.5 rounded-2xl border border-slate-800">
+    <div className="max-w-2xl mx-auto space-y-4 pb-20 px-2 sm:px-0">
+      {/* Match Selector Strip */}
+      <div className="flex items-center justify-between gap-2 bg-slate-900 p-2.5 rounded-2xl border border-slate-800">
         <select
           value={selectedMatchId}
-          onChange={(e) => {
-            setSelectedMatchId(e.target.value);
-            setStrikerId('');
-            setNonStrikerId('');
-            setBowlerId('');
-          }}
+          onChange={(e) => setSelectedMatchId(e.target.value)}
           className="bg-transparent text-xs font-bold text-white focus:outline-none flex-1 truncate"
         >
           {matches.map((m) => (
@@ -349,9 +349,9 @@ export default function AdminLiveScoringPage() {
           <button
             onClick={handleUndoBall}
             title="Undo Last Ball"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-[11px] font-bold"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white text-[11px] font-bold transition-colors"
           >
-            <RotateCcw className="w-3.5 h-3.5" /> Undo
+            <RotateCcw className="w-3.5 h-3.5 text-lime-400" /> Undo
           </button>
         </div>
       </div>
@@ -372,24 +372,24 @@ export default function AdminLiveScoringPage() {
 
       {/* Main Big Scoreboard Banner */}
       <div className="glass-panel rounded-3xl p-5 border border-slate-800 shadow-xl relative overflow-hidden">
-        {/* Stage & Innings */}
+        {/* Stage & Status */}
         <div className="flex items-center justify-between text-xs mb-3 text-slate-400 font-bold">
           <span className="uppercase tracking-wider">
             {matchData.roundName} • {currentInnNum === 1 ? '1st Innings' : '2nd Innings Chasing'}
           </span>
           {matchData.status === 'LIVE' ? (
             <span className="text-red-400 flex items-center gap-1 uppercase font-extrabold text-[10px]">
-              <span className="w-2 h-2 rounded-full bg-red-500 live-dot"></span> LIVE
+              <span className="w-2 h-2 rounded-full bg-red-500 live-dot"></span> LIVE MATCH
             </span>
           ) : (
             <span className="text-lime-400 text-[10px] uppercase font-bold">{matchData.status}</span>
           )}
         </div>
 
-        {/* Big Score & Overs Display */}
-        <div className="flex items-baseline justify-between mb-3">
+        {/* Big Score Display */}
+        <div className="flex items-baseline justify-between mb-2">
           <div>
-            <div className="text-xs uppercase font-extrabold text-lime-400">{battingTeamName}</div>
+            <div className="text-xs uppercase font-extrabold text-lime-400">{battingTeamName || 'Batting Team'}</div>
             <div className="font-scoreboard text-5xl font-black text-white leading-none">
               {inn.runs} / <span className="text-lime-400">{inn.wickets}</span>
             </div>
@@ -398,212 +398,290 @@ export default function AdminLiveScoringPage() {
             <div className="text-xs uppercase font-bold text-slate-400">OVERS</div>
             <div className="font-mono text-3xl font-black text-white">
               {inn.overs}.{inn.balls}
-              <span className="text-sm font-sans text-slate-500 ml-1">/ {matchData.tournament?.oversPerMatch || 5}</span>
+              <span className="text-sm font-sans text-slate-500 ml-1">/ {totalOversAllowed}</span>
             </div>
           </div>
         </div>
 
-        {/* Target & Equation Banner (for 2nd innings) */}
+        {/* Target Banner (for 2nd innings) */}
         {currentInnNum === 2 && inn.target > 0 && (
-          <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs font-bold mb-3">
+          <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs font-bold mt-3">
             <span className="text-slate-300">Target: {inn.target}</span>
             <span className="text-amber-300">
               Need {Math.max(0, inn.target - inn.runs)} runs in{' '}
-              {Math.max(0, (matchData.tournament?.oversPerMatch || 5) * 6 - (inn.overs * 6 + inn.balls))} balls
+              {Math.max(0, totalOversAllowed * 6 - (inn.overs * 6 + inn.balls))} balls
             </span>
           </div>
         )}
 
-        {/* Completed Margin banner */}
+        {/* Completed Winner Margin Banner */}
         {matchData.winMargin && (
-          <div className="p-3 rounded-xl bg-lime-500/20 border border-lime-500/50 text-center text-xs font-black text-lime-400">
+          <div className="mt-3 p-3 rounded-xl bg-lime-500/20 border border-lime-500/50 text-center text-xs font-black text-lime-400">
             🏆 {matchData.winMargin}
           </div>
         )}
       </div>
 
-      {/* Striker / Non-Striker & Bowler Selection Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Batters Selector */}
-        <div className="glass-panel p-3.5 rounded-2xl border border-slate-800 space-y-2">
-          <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
-            <span>BATTING ({battingTeamName})</span>
+      {/* CURRENT OVER BALL-BY-BALL ACCOUNTING CONSOLE */}
+      {!isCompleted && (
+        <div className="glass-panel p-4 sm:p-5 rounded-3xl border border-slate-800 shadow-lg space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase text-lime-400 tracking-wider">
+                  OVER {currentOverIndex + 1}
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-bold">
+                  {currentOverData.legalBalls} / 6 Balls
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-400 mt-0.5">
+                Current Over: <strong className="text-white font-mono">{currentOverData.runs} Runs</strong>
+                {currentOverData.wickets > 0 && (
+                  <span className="text-red-400 font-bold ml-1.5">• {currentOverData.wickets} Wicket{currentOverData.wickets > 1 ? 's' : ''}</span>
+                )}
+                {currentOverData.extras > 0 && (
+                  <span className="text-amber-400 ml-1.5">• {currentOverData.extras} Extras</span>
+                )}
+              </div>
+            </div>
+
+            {/* NEXT OVER BUTTON - Click to advance and view runs */}
             <button
-              onClick={handleSwitchStrike}
-              className="flex items-center gap-1 text-lime-400 hover:underline text-[10px]"
+              onClick={handleNextOver}
+              disabled={recording}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 ${
+                isOverFull
+                  ? 'bg-lime-500 text-slate-950 hover:bg-lime-400 animate-pulse'
+                  : 'bg-slate-800 text-slate-200 hover:bg-slate-750 border border-slate-700'
+              }`}
+              title="End this over and view its total runs"
             >
-              <ArrowRightLeft className="w-3 h-3" /> Rotate Strike
+              Next Over <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="space-y-1.5">
-            <div>
-              <label className="text-[10px] text-lime-400 font-extrabold uppercase">Striker *</label>
-              <select
-                value={strikerId}
-                onChange={(e) => setStrikerId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white focus:outline-none"
-              >
-                <option value="">Select Striker</option>
-                {battingSquad.map((p) => (
-                  <option key={p._id} value={p._id}>
-                    {p.name} {p.isCaptain ? '(C)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-[10px] text-slate-400 font-bold uppercase">Non-Striker *</label>
-              <select
-                value={nonStrikerId}
-                onChange={(e) => setNonStrikerId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white focus:outline-none"
-              >
-                <option value="">Select Non-Striker</option>
-                {battingSquad.map((p) => (
-                  <option key={p._id} value={p._id}>
-                    {p.name} {p.isCaptain ? '(C)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Bowler Selector */}
-        <div className="glass-panel p-3.5 rounded-2xl border border-slate-800 space-y-2">
-          <div className="text-[11px] font-bold text-slate-400">BOWLING ({bowlingTeamName})</div>
+          {/* Ball Slots Strip for the Current Over */}
           <div>
-            <label className="text-[10px] text-lime-400 font-extrabold uppercase">Active Bowler *</label>
-            <select
-              value={bowlerId}
-              onChange={(e) => setBowlerId(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white focus:outline-none"
-            >
-              <option value="">Select Bowler</option>
-              {bowlingSquad.map((p) => (
-                <option key={p._id} value={p._id}>
-                  {p.name} {p.isCaptain ? '(C)' : ''}
-                </option>
+            <div className="text-[10px] uppercase font-bold text-slate-400 mb-2 flex items-center justify-between">
+              <span>Over {currentOverIndex + 1} Deliveries:</span>
+              <span className="text-slate-500">Tap outcome below to log ball</span>
+            </div>
+
+            <div className="flex items-center gap-2 overflow-x-auto pb-1.5">
+              {currentOverData.balls.map((ball, idx) => {
+                const badge = getBallBadge(ball);
+                return (
+                  <div
+                    key={ball._id || idx}
+                    className={`w-10 h-10 rounded-2xl flex-shrink-0 flex items-center justify-center font-mono text-sm shadow-md transition-transform active:scale-95 ${badge.bg}`}
+                    title={`Ball ${idx + 1}: ${badge.text} (${ball.totalRuns || 0} runs)`}
+                  >
+                    {badge.text}
+                  </div>
+                );
+              })}
+
+              {/* Remaining Empty Ball Slots in this 6-ball over */}
+              {Array.from({ length: Math.max(0, 6 - currentOverData.legalBalls) }).map((_, i) => (
+                <div
+                  key={`empty-${i}`}
+                  className="w-10 h-10 rounded-2xl flex-shrink-0 border-2 border-dashed border-slate-800 flex items-center justify-center text-slate-600 font-mono text-xs font-bold"
+                  title={`Ball ${currentOverData.legalBalls + i + 1}`}
+                >
+                  {currentOverData.legalBalls + i + 1}
+                </div>
               ))}
-            </select>
+            </div>
           </div>
 
-          <div className="pt-2 text-[11px] text-slate-400">
-            Extras: Wd: {inn.extras?.wide || 0} | Nb: {inn.extras?.noBall || 0} | Total: {inn.extras?.total || 0}
-          </div>
-        </div>
-      </div>
+          {/* BIG TACTILE BALL SCORING BUTTONS */}
+          <div className="pt-2 space-y-2.5">
+            <div className="grid grid-cols-4 gap-2.5">
+              {[0, 1, 2, 3].map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  disabled={recording}
+                  onClick={() => handleRecordBall(r, 'NONE', false)}
+                  className="py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 font-mono text-2xl font-black text-white active:scale-95 transition-transform shadow-md"
+                >
+                  {r}
+                </button>
+              ))}
 
-      {/* BIG TACTILE MOBILE SCORING BUTTONS */}
-      {!isCompleted && (
-        <div className="glass-panel p-4 rounded-3xl border border-slate-800 space-y-3">
-          <div className="text-[10px] uppercase font-extrabold tracking-wider text-slate-400 text-center">
-            Tap Ball Outcome
-          </div>
-
-          {/* Primary Runs Grid: 0, 1, 2, 3, 4, 5, 6, W */}
-          <div className="grid grid-cols-4 gap-2.5">
-            {[0, 1, 2, 3].map((r) => (
               <button
-                key={r}
                 type="button"
                 disabled={recording}
-                onClick={() => handleRecordBall(r, 'NONE')}
-                className="py-4 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 font-mono text-2xl font-black text-white active:scale-95 transition-transform shadow-md"
+                onClick={() => handleRecordBall(4, 'NONE', false)}
+                className="py-3.5 rounded-2xl bg-lime-500 hover:bg-lime-400 text-slate-950 font-mono text-2xl font-black active:scale-95 transition-transform shadow-md"
               >
-                {r}
+                4
               </button>
-            ))}
 
-            <button
-              type="button"
-              disabled={recording}
-              onClick={() => handleRecordBall(4, 'NONE')}
-              className="py-4 rounded-2xl bg-lime-500 hover:bg-lime-400 text-slate-950 font-mono text-2xl font-black active:scale-95 transition-transform shadow-md"
-            >
-              4
-            </button>
+              <button
+                type="button"
+                disabled={recording}
+                onClick={() => handleRecordBall(5, 'NONE', false)}
+                className="py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 font-mono text-2xl font-black text-white active:scale-95 transition-transform shadow-md"
+              >
+                5
+              </button>
 
-            <button
-              type="button"
-              disabled={recording}
-              onClick={() => handleRecordBall(5, 'NONE')}
-              className="py-4 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 font-mono text-2xl font-black text-white active:scale-95 transition-transform shadow-md"
-            >
-              5
-            </button>
+              <button
+                type="button"
+                disabled={recording}
+                onClick={() => handleRecordBall(6, 'NONE', false)}
+                className="py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-mono text-2xl font-black active:scale-95 transition-transform shadow-md"
+              >
+                6
+              </button>
 
-            <button
-              type="button"
-              disabled={recording}
-              onClick={() => handleRecordBall(6, 'NONE')}
-              className="py-4 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-mono text-2xl font-black active:scale-95 transition-transform shadow-md"
-            >
-              6
-            </button>
+              {/* 1-TAP INSTANT WICKET */}
+              <button
+                type="button"
+                disabled={recording}
+                onClick={() => handleRecordBall(0, 'NONE', true)}
+                className="py-3.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-mono text-2xl font-black active:scale-95 transition-transform shadow-md"
+                title="Record Wicket Fall"
+              >
+                W
+              </button>
+            </div>
 
-            {/* WICKET BUTTON */}
-            <button
-              type="button"
-              disabled={recording}
-              onClick={() => {
-                setPlayerOutId(strikerId);
-                setWicketModalOpen(true);
-              }}
-              className="py-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-mono text-2xl font-black active:scale-95 transition-transform shadow-md glow-lime-sm"
-            >
-              W
-            </button>
-          </div>
-
-          {/* Extras Row: Wide, No Ball, Bye, Leg Bye */}
-          <div className="grid grid-cols-4 gap-2 pt-1">
-            <button
-              type="button"
-              disabled={recording}
-              onClick={() => handleRecordBall(0, 'WIDE')}
-              className="py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 font-bold text-xs active:scale-95"
-            >
-              +Wd
-            </button>
-            <button
-              type="button"
-              disabled={recording}
-              onClick={() => handleRecordBall(0, 'NO_BALL')}
-              className="py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 font-bold text-xs active:scale-95"
-            >
-              +Nb
-            </button>
-            <button
-              type="button"
-              disabled={recording}
-              onClick={() => handleRecordBall(1, 'BYE')}
-              className="py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold text-xs active:scale-95"
-            >
-              +1 Bye
-            </button>
-            <button
-              type="button"
-              disabled={recording}
-              onClick={() => handleRecordBall(1, 'LEG_BYE')}
-              className="py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold text-xs active:scale-95"
-            >
-              +1 Lb
-            </button>
+            {/* Extras Row */}
+            <div className="grid grid-cols-4 gap-2 pt-1">
+              <button
+                type="button"
+                disabled={recording}
+                onClick={() => handleRecordBall(0, 'WIDE', false)}
+                className="py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 font-bold text-xs active:scale-95"
+              >
+                +Wd
+              </button>
+              <button
+                type="button"
+                disabled={recording}
+                onClick={() => handleRecordBall(0, 'NO_BALL', false)}
+                className="py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 font-bold text-xs active:scale-95"
+              >
+                +Nb
+              </button>
+              <button
+                type="button"
+                disabled={recording}
+                onClick={() => handleRecordBall(1, 'BYE', false)}
+                className="py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold text-xs active:scale-95"
+              >
+                +1 Bye
+              </button>
+              <button
+                type="button"
+                disabled={recording}
+                onClick={() => handleRecordBall(1, 'LEG_BYE', false)}
+                className="py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-bold text-xs active:scale-95"
+              >
+                +1 Lb
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* OVER-BY-OVER HISTORY & RUN BREAKDOWN (CLICK ANY OVER TO VIEW RUNS) */}
+      <div className="glass-panel p-4 sm:p-5 rounded-3xl border border-slate-800 space-y-3">
+        <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+          <div>
+            <h3 className="text-xs font-black uppercase text-white flex items-center gap-1.5">
+              <Activity className="w-4 h-4 text-lime-400" /> Overs Breakdown & History
+            </h3>
+            <span className="text-[11px] text-slate-400">Click any completed over to view runs & ball sequence</span>
+          </div>
+          <span className="text-[10px] font-bold text-slate-500 uppercase">
+            Innings {currentInnNum}
+          </span>
+        </div>
+
+        {allOversList.length === 0 ? (
+          <div className="py-6 text-center text-xs text-slate-500 font-semibold">
+            No deliveries recorded yet. Tap any scoring button to start Over 1!
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {allOversList.map((ovData) => {
+              const isCurrent = ovData.overNumber === currentOverIndex;
+              return (
+                <div
+                  key={ovData.overNumber}
+                  onClick={() => setSelectedOverModal(ovData)}
+                  className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                    isCurrent
+                      ? 'bg-lime-500/5 border-lime-500/40 hover:bg-lime-500/10'
+                      : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-850'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-mono text-xs font-black ${
+                      isCurrent ? 'bg-lime-500 text-slate-950' : 'bg-slate-800 text-slate-300'
+                    }`}>
+                      O{ovData.overNumber + 1}
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-extrabold text-white">
+                          Over {ovData.overNumber + 1}
+                        </span>
+                        {isCurrent && (
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-lime-500/20 text-lime-400 font-black uppercase">
+                            Active
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Ball pills preview */}
+                      <div className="flex items-center gap-1 mt-1 overflow-x-hidden">
+                        {ovData.balls.map((b, i) => {
+                          const badge = getBallBadge(b);
+                          return (
+                            <span
+                              key={i}
+                              className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${badge.bg}`}
+                            >
+                              {badge.text}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-right flex items-center gap-2 flex-shrink-0">
+                    <div>
+                      <div className="font-mono text-base font-black text-lime-400">
+                        {ovData.runs} <span className="text-[10px] font-sans font-bold text-slate-400">runs</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-semibold">
+                        {ovData.wickets} wkt{ovData.wickets !== 1 ? 's' : ''} • {ovData.legalBalls} balls
+                      </div>
+                    </div>
+                    <Eye className="w-4 h-4 text-slate-500" />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Innings Switch & Match Completion Controls */}
       <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
         {currentInnNum === 1 && !isCompleted && (
           <button
             onClick={handleSwitchInnings}
-            className="flex-1 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-slate-900 border border-slate-700 hover:bg-slate-800 text-white"
+            className="flex-1 py-3 rounded-2xl font-black text-xs uppercase tracking-wider bg-slate-900 border border-slate-700 hover:bg-slate-800 text-white shadow-sm"
           >
-            End 1st Innings →
+            End 1st Innings → Start 2nd Innings
           </button>
         )}
 
@@ -624,6 +702,77 @@ export default function AdminLiveScoringPage() {
           </div>
         )}
       </div>
+
+      {/* OVER SUMMARY MODAL (TRIGGERED ON NEXT OVER OR BY TAPPING ANY OVER) */}
+      {selectedOverModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-panel w-full max-w-sm rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <span className="text-[10px] font-black uppercase text-lime-400 tracking-wider">
+                  OVER SUMMARY BREAKDOWN
+                </span>
+                <h3 className="text-xl font-black text-white">
+                  Over {selectedOverModal.overNumber + 1}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedOverModal(null)}
+                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Big Run Highlight */}
+            <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 text-center">
+              <span className="text-[11px] font-bold uppercase text-slate-400">Total Runs Scored</span>
+              <div className="font-scoreboard text-5xl font-black text-lime-400 my-1">
+                {selectedOverModal.runs}
+              </div>
+              <div className="flex items-center justify-center gap-3 text-xs font-bold text-slate-300">
+                <span>🚨 {selectedOverModal.wickets} Wicket{selectedOverModal.wickets !== 1 ? 's' : ''}</span>
+                <span>•</span>
+                <span>🏏 {selectedOverModal.balls.length} Deliveries</span>
+              </div>
+            </div>
+
+            {/* Delivery Sequence Detail */}
+            <div>
+              <label className="text-[10px] font-extrabold uppercase text-slate-400 block mb-2">
+                Ball by Ball Sequence
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {selectedOverModal.balls.map((b, idx) => {
+                  const badge = getBallBadge(b);
+                  return (
+                    <div
+                      key={idx}
+                      className="flex flex-col items-center p-2 rounded-xl bg-slate-900 border border-slate-800 flex-1 min-w-[50px]"
+                    >
+                      <span className="text-[9px] font-bold text-slate-500 mb-1">B#{idx + 1}</span>
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-mono text-xs font-black ${badge.bg}`}>
+                        {badge.text}
+                      </div>
+                      <span className="text-[10px] font-mono font-bold text-white mt-1">
+                        +{b.totalRuns || 0}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSelectedOverModal(null)}
+              className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-sm"
+            >
+              Continue Scoring 🏏
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Toss Modal */}
       {tossModalOpen && (
@@ -678,81 +827,6 @@ export default function AdminLiveScoringPage() {
               >
                 Confirm Toss & Start Match
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Wicket Modal */}
-      {wicketModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="glass-panel w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-3xl p-6 border border-slate-800 shadow-2xl">
-            <h3 className="text-base font-black text-red-400 mb-1 flex items-center gap-2">
-              🚨 Wicket Fall Recording
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">Specify dismissal details and next batsman</p>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">Batsman Out *</label>
-                <select
-                  value={playerOutId}
-                  onChange={(e) => setPlayerOutId(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
-                >
-                  <option value={strikerId}>Striker (Current on-strike)</option>
-                  <option value={nonStrikerId}>Non-Striker (Run-out)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">Dismissal Type *</label>
-                <select
-                  value={wicketType}
-                  onChange={(e) => setWicketType(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
-                >
-                  <option value="BOWLED">Bowled</option>
-                  <option value="CAUGHT">Caught</option>
-                  <option value="RUN_OUT">Run Out</option>
-                  <option value="STUMPED">Stumped</option>
-                  <option value="LBW">LBW</option>
-                  <option value="HIT_WICKET">Hit Wicket</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">New Batsman (Optional)</label>
-                <select
-                  value={newBatsmanId}
-                  onChange={(e) => setNewBatsmanId(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                >
-                  <option value="">Select next player</option>
-                  {battingSquad.map((p) => (
-                    <option key={p._id} value={p._id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setWicketModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRecordWicket}
-                  className="flex-1 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-red-600 text-white hover:bg-red-500 shadow-md"
-                >
-                  Confirm Wicket
-                </button>
-              </div>
             </div>
           </div>
         </div>

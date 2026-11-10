@@ -22,16 +22,20 @@ const BallDeliverySchema = new mongoose.Schema(
       required: true,
     },
     striker: {
-      id: { type: mongoose.Schema.Types.ObjectId, ref: 'Player' },
-      name: { type: String, required: true },
+      id: { type: mongoose.Schema.Types.ObjectId, ref: 'Player', default: null },
+      name: { type: String, default: 'Striker' },
     },
     nonStriker: {
-      id: { type: mongoose.Schema.Types.ObjectId, ref: 'Player' },
-      name: { type: String, required: true },
+      id: { type: mongoose.Schema.Types.ObjectId, ref: 'Player', default: null },
+      name: { type: String, default: 'Non-Striker' },
     },
     bowler: {
-      id: { type: mongoose.Schema.Types.ObjectId, ref: 'Player' },
-      name: { type: String, required: true },
+      id: { type: mongoose.Schema.Types.ObjectId, ref: 'Player', default: null },
+      name: { type: String, default: 'Bowler' },
+    },
+    totalRuns: {
+      type: Number,
+      default: 0,
     },
     runsBat: {
       type: Number,
