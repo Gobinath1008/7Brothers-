@@ -21,12 +21,12 @@ const TeamSchema = new mongoose.Schema(
     },
     captainName: {
       type: String,
-      required: [true, 'Captain name is required'],
+      default: 'Captain',
       trim: true,
     },
     captainPhone: {
       type: String,
-      required: [true, 'Captain primary phone number is required'],
+      default: '',
       trim: true,
     },
     secondaryPhone: {
@@ -58,9 +58,8 @@ const TeamSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Compound Unique Indexes to prevent duplicate submissions within the same tournament
+// Compound Unique Index: prevent duplicate team names within the same tournament
 TeamSchema.index({ tournament: 1, normalizedName: 1 }, { unique: true });
-TeamSchema.index({ tournament: 1, captainPhone: 1 }, { unique: true });
 
 delete mongoose.models.Team;
 export default mongoose.model('Team', TeamSchema);

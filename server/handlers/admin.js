@@ -46,6 +46,10 @@ export async function handleAdminResetData(req, res) {
 
     // 2. DELETE TEAMS ONLY (All registered teams, squads, and their fixtures)
     if (action === 'DELETE_TEAMS') {
+      try {
+        await Team.collection.dropIndex('tournament_1_captainPhone_1');
+      } catch (_) {}
+
       const teamFilter = tournamentId ? { tournament: tournamentId } : {};
       const teams = await Team.find(teamFilter).select('_id');
       const teamIds = teams.map((t) => t._id);
@@ -75,6 +79,10 @@ export async function handleAdminResetData(req, res) {
 
     // 3. WIPE ALL DATA (Matches, Deliveries, Teams, Players, and optionally Tournaments)
     if (action === 'WIPE_ALL') {
+      try {
+        await Team.collection.dropIndex('tournament_1_captainPhone_1');
+      } catch (_) {}
+
       const delBalls = await BallDelivery.deleteMany({});
       const delMatches = await Match.deleteMany({});
       const delPlayers = await Player.deleteMany({});

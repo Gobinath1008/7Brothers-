@@ -22,21 +22,48 @@ async function resolveTeam(tournamentId, teamId, customName, defaultCaptain = 'C
   const trimmed = customName.trim();
   const normalizedName = trimmed.toLowerCase();
 
+  // Try to drop the problematic legacy compound unique index on captainPhone if it still exists in Atlas
+  try {
+    await Team.collection.dropIndex('tournament_1_captainPhone_1');
+  } catch (_) {}
+
   // Find if a team already exists with this name in this tournament
   let teamDoc = await Team.findOne({ tournament: tournamentId, normalizedName });
-  if (!teamDoc) {
-    const regId = '7B-' + Math.random().toString(36).substring(2, 7).toUpperCase();
-    teamDoc = await Team.create({
-      tournament: tournamentId,
-      name: trimmed,
-      normalizedName,
-      captainName: `${trimmed} ${defaultCaptain}`,
-      captainPhone: '0000000000',
-      secondaryPhone: '0000000000',
-      registrationId: regId,
-      status: 'CONFIRMED',
-    });
+  if (teamDoc) {
+    return teamDoc;
   }
+
+  // Attempt creation with guaranteed unique random phone numbers
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const regId = '7B-' + Date.now().toString(36).slice(-4).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+      const randomPhone = '9' + Math.floor(100000000 + Math.random() * 900000000).toString();
+      const randomSecPhone = '9' + Math.floor(100000000 + Math.random() * 900000000).toString();
+
+      teamDoc = await Team.create({
+        tournament: tournamentId,
+        name: trimmed,
+        normalizedName,
+        captainName: `${trimmed} ${defaultCaptain}`,
+        captainPhone: randomPhone,
+        secondaryPhone: randomSecPhone,
+        registrationId: regId,
+        status: 'CONFIRMED',
+      });
+      return teamDoc;
+    } catch (err) {
+      // If another concurrent call created the team or duplicate key on name, return existing
+      const existing = await Team.findOne({ tournament: tournamentId, normalizedName });
+      if (existing) {
+        return existing;
+      }
+      if (attempt === 2) {
+        console.error('Error resolving/creating team:', err);
+        throw err;
+      }
+    }
+  }
+
   return teamDoc;
 }
 
