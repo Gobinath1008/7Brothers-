@@ -447,10 +447,19 @@ export async function handleScoreStatus(req, res) {
       match.toss = { wonBy: tossWonBy, choice: tossChoice };
       match.status = 'LIVE';
 
-      const isTeamA = match.teamA._id.toString() === tossWonBy.toString();
+      const teamAId = match.teamA?._id ? match.teamA._id.toString() : (match.teamA ? match.teamA.toString() : 'teamA');
+      const teamBId = match.teamB?._id ? match.teamB._id.toString() : (match.teamB ? match.teamB.toString() : 'teamB');
+      const tossWonStr = tossWonBy.toString();
+
+      const isTeamA = tossWonStr === teamAId || tossWonStr === 'teamA' || tossWonStr === match.teamAName;
+      const teamAObjId = match.teamA?._id || match.teamA || null;
+      const teamBObjId = match.teamB?._id || match.teamB || null;
+
       const battingFirst =
-        tossChoice === 'BAT' ? (isTeamA ? match.teamA._id : match.teamB._id) : isTeamA ? match.teamB._id : match.teamA._id;
-      const bowlingFirst = battingFirst.toString() === match.teamA._id.toString() ? match.teamB._id : match.teamA._id;
+        tossChoice === 'BAT'
+          ? (isTeamA ? teamAObjId : teamBObjId)
+          : (isTeamA ? teamBObjId : teamAObjId);
+      const bowlingFirst = (battingFirst && teamAObjId && battingFirst.toString() === teamAObjId.toString()) ? teamBObjId : teamAObjId;
 
       match.innings1.battingTeam = battingFirst;
       match.innings1.bowlingTeam = bowlingFirst;

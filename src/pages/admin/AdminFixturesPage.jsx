@@ -51,12 +51,25 @@ export default function AdminFixturesPage() {
   const [matchEditForm, setMatchEditForm] = useState({
     teamA: '',
     teamB: '',
+    teamAName: '',
+    teamBName: '',
     venue: '',
     scheduledAt: '',
     roundName: '',
     status: 'UPCOMING',
   });
   const [savingMatch, setSavingMatch] = useState(false);
+
+  // Add Match Modal State (Direct Custom Teams)
+  const [addMatchOpen, setAddMatchOpen] = useState(false);
+  const [newMatchForm, setNewMatchForm] = useState({
+    teamAName: '',
+    teamBName: '',
+    roundName: '',
+    venue: '',
+    scheduledAt: '',
+  });
+  const [creatingMatch, setCreatingMatch] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -209,6 +222,8 @@ export default function AdminFixturesPage() {
     setMatchEditForm({
       teamA: m.teamA?._id || m.teamA || '',
       teamB: m.teamB?._id || m.teamB || '',
+      teamAName: m.teamA?.name || m.teamAName || '',
+      teamBName: m.teamB?.name || m.teamBName || '',
       venue: m.venue || currentTournament?.venue || '',
       scheduledAt: m.scheduledAt ? new Date(m.scheduledAt).toISOString().slice(0, 16) : '',
       roundName: m.roundName || '',
@@ -230,6 +245,8 @@ export default function AdminFixturesPage() {
       const payload = {
         teamA: matchEditForm.teamA || null,
         teamB: matchEditForm.teamB || null,
+        teamAName: matchEditForm.teamAName?.trim() || undefined,
+        teamBName: matchEditForm.teamBName?.trim() || undefined,
         venue: matchEditForm.venue.trim(),
         scheduledAt: matchEditForm.scheduledAt ? new Date(matchEditForm.scheduledAt) : null,
         roundName: matchEditForm.roundName.trim(),
@@ -249,6 +266,41 @@ export default function AdminFixturesPage() {
     }
   };
 
+  // 4. Create New Match directly with custom team names
+  const handleCreateNewMatch = async (e) => {
+    e.preventDefault();
+    if (!selectedTournamentId) {
+      alert('Please select a tournament first');
+      return;
+    }
+    if (!newMatchForm.teamAName.trim() || !newMatchForm.teamBName.trim()) {
+      alert('Please enter both Team A and Team B names.');
+      return;
+    }
+
+    setCreatingMatch(true);
+    try {
+      const res = await matchService.createMatch({
+        tournamentId: selectedTournamentId,
+        teamAName: newMatchForm.teamAName.trim(),
+        teamBName: newMatchForm.teamBName.trim(),
+        roundName: newMatchForm.roundName.trim() || `Match ${matches.length + 1}`,
+        venue: newMatchForm.venue.trim() || currentTournament?.venue || 'Pitch 1',
+        scheduledAt: newMatchForm.scheduledAt ? new Date(newMatchForm.scheduledAt) : null,
+      });
+      if (res.success) {
+        setAlertMsg(`Match ${newMatchForm.teamAName} vs ${newMatchForm.teamBName} created successfully! 🏏`);
+        setAddMatchOpen(false);
+        setNewMatchForm({ teamAName: '', teamBName: '', roundName: '', venue: '', scheduledAt: '' });
+        loadData();
+      }
+    } catch (err) {
+      alert(err.message || 'Error creating match');
+    } finally {
+      setCreatingMatch(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-12">
       {/* Header & Export Toolbar */}
@@ -264,11 +316,21 @@ export default function AdminFixturesPage() {
 
         {/* Toolbar with Manual + Automatic Options */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Add Match Directly Button */}
+          <button
+            onClick={() => setAddMatchOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-sm cursor-pointer"
+            title="Create a match directly with custom team names"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>➕ Add Match</span>
+          </button>
+
           {/* Automatic Generation Button */}
           <button
             onClick={handleAutoGenerateFixtures}
             disabled={generating}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-300 bg-slate-900 border border-slate-800 hover:text-white hover:bg-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
             title="Auto-pair teams randomly into a knockout bracket"
           >
             <Shuffle className="w-4 h-4" />
@@ -283,7 +345,7 @@ export default function AdminFixturesPage() {
             title="Manually choose which team plays against which team"
           >
             <SlidersHorizontal className="w-4 h-4" />
-            <span>🛠️ Manual Matchmaker</span>
+            <span>🛠️ Matchmaker</span>
           </button>
 
           {/* Download PDF */}
@@ -710,38 +772,72 @@ export default function AdminFixturesPage() {
 
             <form onSubmit={handleSaveMatchEdit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Team A Select */}
+                {/* Team A Input & Select */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Team A *</label>
-                  <select
-                    value={matchEditForm.teamA}
-                    onChange={(e) => setMatchEditForm({ ...matchEditForm, teamA: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-lime-500"
-                  >
-                    <option value="">-- TBD (Undetermined) --</option>
-                    {confirmedTeams.map((t) => (
-                      <option key={t._id} value={t._id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="block text-xs font-bold text-lime-400 mb-1">Team A Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={matchEditForm.teamAName}
+                    onChange={(e) => setMatchEditForm({ ...matchEditForm, teamAName: e.target.value, teamA: '' })}
+                    placeholder="Enter Team A Name"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white mb-1.5 focus:outline-none focus:border-lime-500"
+                  />
+                  {confirmedTeams.length > 0 && (
+                    <select
+                      value={matchEditForm.teamA}
+                      onChange={(e) => {
+                        const sel = confirmedTeams.find((t) => t._id === e.target.value);
+                        setMatchEditForm({
+                          ...matchEditForm,
+                          teamA: e.target.value,
+                          teamAName: sel ? sel.name : matchEditForm.teamAName,
+                        });
+                      }}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-[11px] text-slate-400"
+                    >
+                      <option value="">-- Or pick registered team --</option>
+                      {confirmedTeams.map((t) => (
+                        <option key={t._id} value={t._id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
-                {/* Team B Select */}
+                {/* Team B Input & Select */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">Team B *</label>
-                  <select
-                    value={matchEditForm.teamB}
-                    onChange={(e) => setMatchEditForm({ ...matchEditForm, teamB: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-lime-500"
-                  >
-                    <option value="">-- TBD (Undetermined) --</option>
-                    {confirmedTeams.map((t) => (
-                      <option key={t._id} value={t._id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="block text-xs font-bold text-lime-400 mb-1">Team B Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={matchEditForm.teamBName}
+                    onChange={(e) => setMatchEditForm({ ...matchEditForm, teamBName: e.target.value, teamB: '' })}
+                    placeholder="Enter Team B Name"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white mb-1.5 focus:outline-none focus:border-lime-500"
+                  />
+                  {confirmedTeams.length > 0 && (
+                    <select
+                      value={matchEditForm.teamB}
+                      onChange={(e) => {
+                        const sel = confirmedTeams.find((t) => t._id === e.target.value);
+                        setMatchEditForm({
+                          ...matchEditForm,
+                          teamB: e.target.value,
+                          teamBName: sel ? sel.name : matchEditForm.teamBName,
+                        });
+                      }}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-[11px] text-slate-400"
+                    >
+                      <option value="">-- Or pick registered team --</option>
+                      {confirmedTeams.map((t) => (
+                        <option key={t._id} value={t._id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 
@@ -808,6 +904,107 @@ export default function AdminFixturesPage() {
                 >
                   <Save className="w-4 h-4" />
                   {savingMatch ? 'Saving...' : 'Update Match Pairing'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: ADD NEW MATCH FIXTURE (DIRECT ENTRY) */}
+      {addMatchOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-panel w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative my-8">
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+              <div>
+                <h3 className="text-base font-black text-white flex items-center gap-2">
+                  <PlusCircle className="w-5 h-5 text-lime-400" /> Create New Match Fixture
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Type custom team names directly without requiring online team registrations
+                </p>
+              </div>
+              <button onClick={() => setAddMatchOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateNewMatch} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-lime-400 mb-1">Team A Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newMatchForm.teamAName}
+                    onChange={(e) => setNewMatchForm({ ...newMatchForm, teamAName: e.target.value })}
+                    placeholder="e.g. 7Brothers Warriors"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-lime-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-lime-400 mb-1">Team B Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newMatchForm.teamBName}
+                    onChange={(e) => setNewMatchForm({ ...newMatchForm, teamBName: e.target.value })}
+                    placeholder="e.g. Rockers CC"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-lime-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Round / Stage Name</label>
+                <input
+                  type="text"
+                  value={newMatchForm.roundName}
+                  onChange={(e) => setNewMatchForm({ ...newMatchForm, roundName: e.target.value })}
+                  placeholder={`Match ${matches.length + 1}`}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Venue / Pitch</label>
+                  <input
+                    type="text"
+                    value={newMatchForm.venue}
+                    onChange={(e) => setNewMatchForm({ ...newMatchForm, venue: e.target.value })}
+                    placeholder={currentTournament?.venue || 'Pitch 1'}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Scheduled Time</label>
+                  <input
+                    type="datetime-local"
+                    value={newMatchForm.scheduledAt}
+                    onChange={(e) => setNewMatchForm({ ...newMatchForm, scheduledAt: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-lime-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setAddMatchOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingMatch}
+                  className="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  {creatingMatch ? 'Creating Match...' : 'Create Match Fixture 🏏'}
                 </button>
               </div>
             </form>

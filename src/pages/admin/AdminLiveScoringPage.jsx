@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { matchService, scoringService } from '../../services/api';
+import { matchService, scoringService, tournamentService } from '../../services/api';
 import {
   Radio,
   RotateCcw,
@@ -19,6 +19,9 @@ import {
   Edit3,
   Trash2,
   Sliders,
+  PlusCircle,
+  Edit,
+  Users,
 } from 'lucide-react';
 
 export default function AdminLiveScoringPage() {
@@ -29,6 +32,24 @@ export default function AdminLiveScoringPage() {
   const [selectedMatchId, setSelectedMatchId] = useState(matchParam || '');
   const [matchData, setMatchData] = useState(null);
   const [deliveries, setDeliveries] = useState([]);
+
+  // Tournaments list
+  const [tournaments, setTournaments] = useState([]);
+
+  // Quick Match Creation State (Direct Team Entry)
+  const [quickMatchModalOpen, setQuickMatchModalOpen] = useState(false);
+  const [quickMatchTournamentId, setQuickMatchTournamentId] = useState('');
+  const [quickTeamAName, setQuickTeamAName] = useState('');
+  const [quickTeamBName, setQuickTeamBName] = useState('');
+  const [quickRoundName, setQuickRoundName] = useState('League Match');
+  const [quickVenue, setQuickVenue] = useState('Pitch 1');
+  const [creatingQuickMatch, setCreatingQuickMatch] = useState(false);
+
+  // Edit Team Names Modal State
+  const [editTeamsModalOpen, setEditTeamsModalOpen] = useState(false);
+  const [editTeamAName, setEditTeamAName] = useState('');
+  const [editTeamBName, setEditTeamBName] = useState('');
+  const [savingTeams, setSavingTeams] = useState(false);
 
   // Modals
   const [tossModalOpen, setTossModalOpen] = useState(false);
@@ -56,6 +77,22 @@ export default function AdminLiveScoringPage() {
   const [recording, setRecording] = useState(false);
   const [alertMsg, setAlertMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Load tournaments
+  useEffect(() => {
+    async function loadTournaments() {
+      try {
+        const res = await tournamentService.getAll();
+        if (res.success && res.tournaments?.length > 0) {
+          setTournaments(res.tournaments);
+          setQuickMatchTournamentId(res.tournaments[0]._id);
+        }
+      } catch (err) {
+        console.error('Failed to load tournaments:', err);
+      }
+    }
+    loadTournaments();
+  }, []);
 
   // Load matches
   useEffect(() => {
@@ -86,8 +123,8 @@ export default function AdminLiveScoringPage() {
         setDeliveries(res.allDeliveries || res.recentDeliveries || []);
 
         const m = res.match;
-        if (!m.toss?.wonBy && m.teamA && m.teamB && m.status !== 'COMPLETED') {
-          setTossWonBy(m.teamA._id);
+        if (!m.toss?.wonBy && m.status !== 'COMPLETED') {
+          setTossWonBy(m.teamA?._id || 'teamA');
           setTossModalOpen(true);
         }
 
@@ -109,19 +146,93 @@ export default function AdminLiveScoringPage() {
     fetchCurrentMatch();
   }, [selectedMatchId]);
 
+  // Handle Quick Match Creation
+  const handleCreateQuickMatch = async (e) => {
+    if (e) e.preventDefault();
+    if (!quickTeamAName.trim() || !quickTeamBName.trim()) {
+      alert('Please enter both Team A and Team B names!');
+      return;
+    }
+    const targetTournamentId = quickMatchTournamentId || (tournaments[0]?._id);
+    if (!targetTournamentId) {
+      alert('No tournament found. Please create a tournament first.');
+      return;
+    }
+
+    setCreatingQuickMatch(true);
+    try {
+      const res = await matchService.createMatch({
+        tournamentId: targetTournamentId,
+        teamAName: quickTeamAName.trim(),
+        teamBName: quickTeamBName.trim(),
+        roundName: quickRoundName.trim() || 'Match',
+        venue: quickVenue.trim() || 'Pitch 1',
+      });
+      if (res.success && res.match) {
+        setQuickMatchModalOpen(false);
+        setQuickTeamAName('');
+        setQuickTeamBName('');
+        setMatches((prev) => [res.match, ...prev]);
+        setSelectedMatchId(res.match._id);
+        setAlertMsg(`Match ${res.match.teamAName} vs ${res.match.teamBName} created! 🏏`);
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to create quick match');
+    } finally {
+      setCreatingQuickMatch(false);
+    }
+  };
+
+  // Open Edit Teams Modal
+  const openEditTeamsModal = () => {
+    if (!matchData) return;
+    setEditTeamAName(matchData.teamA?.name || matchData.teamAName || 'Team A');
+    setEditTeamBName(matchData.teamB?.name || matchData.teamBName || 'Team B');
+    setEditTeamsModalOpen(true);
+  };
+
+  // Handle Save Team Names
+  const handleSaveTeamNames = async (e) => {
+    if (e) e.preventDefault();
+    if (!matchData) return;
+    setSavingTeams(true);
+    try {
+      const res = await matchService.update(matchData._id, {
+        teamAName: editTeamAName.trim() || matchData.teamAName,
+        teamBName: editTeamBName.trim() || matchData.teamBName,
+      });
+      if (res.success) {
+        setEditTeamsModalOpen(false);
+        await fetchCurrentMatch();
+        setAlertMsg('Team names updated successfully! 🏏');
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to update team names');
+    } finally {
+      setSavingTeams(false);
+    }
+  };
+
   if (!matchData) {
     return (
-      <div className="py-16 text-center">
-        <Radio className="w-12 h-12 text-slate-600 mx-auto mb-3 animate-pulse" />
-        <h2 className="text-xl font-bold text-white mb-2">Live Scorer Console</h2>
-        <p className="text-xs text-slate-400 mb-6">Select a match to start scoring deliveries</p>
+      <div className="py-8 max-w-lg mx-auto px-4 space-y-6">
+        <div className="text-center">
+          <Radio className="w-12 h-12 text-lime-400 mx-auto mb-3 animate-pulse" />
+          <h2 className="text-2xl font-black text-white mb-1">Live Scorer Console</h2>
+          <p className="text-xs text-slate-400">Select an existing match or create one instantly</p>
+        </div>
+
         {matches.length > 0 && (
-          <div className="max-w-md mx-auto px-4">
+          <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-2">
+            <label className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider block">
+              Resume Existing Match
+            </label>
             <select
               value={selectedMatchId}
               onChange={(e) => setSelectedMatchId(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs font-bold text-white"
+              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs font-bold text-white focus:outline-none focus:border-lime-500"
             >
+              <option value="">-- Choose a match --</option>
               {matches.map((m) => (
                 <option key={m._id} value={m._id}>
                   M#{m.matchNumber} ({m.roundName}): {m.teamAName} vs {m.teamBName} - {m.status}
@@ -130,6 +241,91 @@ export default function AdminLiveScoringPage() {
             </select>
           </div>
         )}
+
+        {/* Quick Match Launcher Direct Entry */}
+        <div className="glass-panel p-6 rounded-3xl border border-lime-500/30 shadow-2xl space-y-4 bg-slate-900/60">
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
+            <Flame className="w-5 h-5 text-amber-400" />
+            <div>
+              <h3 className="text-sm font-black text-white">⚡ Quick Match (No Registration Needed)</h3>
+              <p className="text-[11px] text-slate-400">Type team names directly and start scoring right now</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleCreateQuickMatch} className="space-y-3">
+            {tournaments.length > 1 && (
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Tournament</label>
+                <select
+                  value={quickMatchTournamentId}
+                  onChange={(e) => setQuickMatchTournamentId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                >
+                  {tournaments.map((t) => (
+                    <option key={t._id} value={t._id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-lime-400 block mb-1">Team A Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={quickTeamAName}
+                  onChange={(e) => setQuickTeamAName(e.target.value)}
+                  placeholder="e.g. Royal Strikers"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold focus:border-lime-400"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-lime-400 block mb-1">Team B Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={quickTeamBName}
+                  onChange={(e) => setQuickTeamBName(e.target.value)}
+                  placeholder="e.g. Chennai Kings"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold focus:border-lime-400"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">Round / Title</label>
+                <input
+                  type="text"
+                  value={quickRoundName}
+                  onChange={(e) => setQuickRoundName(e.target.value)}
+                  placeholder="Match 1"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1">Venue / Pitch</label>
+                <input
+                  type="text"
+                  value={quickVenue}
+                  onChange={(e) => setQuickVenue(e.target.value)}
+                  placeholder="Pitch 1"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={creatingQuickMatch}
+              className="w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-lg shadow-lime-500/20 disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+            >
+              <Flame className="w-4 h-4 text-slate-950" />
+              {creatingQuickMatch ? 'Creating Match...' : 'Start Live Scoring 🏏'}
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
@@ -139,8 +335,12 @@ export default function AdminLiveScoringPage() {
   const isCompleted = matchData.status === 'COMPLETED';
   const totalOversAllowed = matchData.tournament?.oversPerMatch || 5;
 
+  const teamAIdStr = matchData.teamA?._id ? String(matchData.teamA._id) : (matchData.teamA ? String(matchData.teamA) : 'teamA');
+  const batTeamStr = String(inn.battingTeam?._id || inn.battingTeam || '');
   const battingTeamName =
-    inn.battingTeam === matchData.teamA?._id ? matchData.teamA?.name : matchData.teamB?.name;
+    (batTeamStr === teamAIdStr || batTeamStr === 'teamA')
+      ? (matchData.teamA?.name || matchData.teamAName || 'Team A')
+      : (matchData.teamB?.name || matchData.teamBName || 'Team B');
 
   // Group deliveries for active innings by overNumber
   const innDeliveries = (deliveries || []).filter((d) => d.innings === currentInnNum);
@@ -463,11 +663,11 @@ export default function AdminLiveScoringPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-4 pb-20 px-2 sm:px-0">
       {/* Match Selector & Control Strip */}
-      <div className="flex items-center justify-between gap-2 bg-slate-900 p-2.5 rounded-2xl border border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-900 p-2.5 rounded-2xl border border-slate-800">
         <select
           value={selectedMatchId}
           onChange={(e) => setSelectedMatchId(e.target.value)}
-          className="bg-transparent text-xs font-bold text-white focus:outline-none flex-1 truncate"
+          className="bg-transparent text-xs font-bold text-white focus:outline-none flex-1 truncate py-1"
         >
           {matches.map((m) => (
             <option key={m._id} value={m._id} className="bg-slate-950">
@@ -476,38 +676,54 @@ export default function AdminLiveScoringPage() {
           ))}
         </select>
 
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <Link
-            to="/admin/scores"
-            title="View All Existing Match Scores"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white text-[11px] font-bold transition-colors"
+        <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
+          <button
+            onClick={() => setQuickMatchModalOpen(true)}
+            title="Create New Quick Match"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-lime-500 hover:bg-lime-400 text-slate-950 text-[11px] font-black transition-colors"
           >
-            <Trophy className="w-3.5 h-3.5 text-lime-400" /> All Scores
-          </Link>
+            <PlusCircle className="w-3.5 h-3.5" /> Quick Match
+          </button>
+
+          <button
+            onClick={openEditTeamsModal}
+            title="Edit / Rename Teams"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-bold transition-colors"
+          >
+            <Edit className="w-3.5 h-3.5 text-lime-400" /> Teams
+          </button>
 
           <button
             onClick={() => setQuickScoreModalOpen(true)}
             title="Edit Match Score Directly"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white text-[11px] font-bold transition-colors"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-bold transition-colors"
           >
-            <Sliders className="w-3.5 h-3.5 text-lime-400" /> Edit Score
+            <Sliders className="w-3.5 h-3.5 text-lime-400" /> Score
           </button>
+
+          <Link
+            to="/admin/scores"
+            title="View All Existing Match Scores"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-bold transition-colors"
+          >
+            <Trophy className="w-3.5 h-3.5 text-lime-400" /> All
+          </Link>
 
           {!matchData.toss?.wonBy && (
             <button
               onClick={() => setTossModalOpen(true)}
-              className="px-2.5 py-1 rounded-lg bg-lime-500 text-slate-950 text-[10px] font-black uppercase"
+              className="px-2.5 py-1.5 rounded-lg bg-lime-500 text-slate-950 text-[10px] font-black uppercase"
             >
-              Set Toss
+              Toss
             </button>
           )}
 
           <button
             onClick={handleUndoBall}
             title="Undo Last Ball"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white text-[11px] font-bold transition-colors"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-bold transition-colors"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-lime-400" /> Undo
+            <RotateCcw className="w-3.5 h-3.5 text-lime-400" />
           </button>
         </div>
       </div>
@@ -1291,8 +1507,12 @@ export default function AdminLiveScoringPage() {
                   onChange={(e) => setTossWonBy(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
                 >
-                  <option value={matchData.teamA?._id}>{matchData.teamA?.name}</option>
-                  <option value={matchData.teamB?._id}>{matchData.teamB?.name}</option>
+                  <option value={matchData.teamA?._id || 'teamA'}>
+                    {matchData.teamA?.name || matchData.teamAName || 'Team A'}
+                  </option>
+                  <option value={matchData.teamB?._id || 'teamB'}>
+                    {matchData.teamB?.name || matchData.teamBName || 'Team B'}
+                  </option>
                 </select>
               </div>
 
@@ -1328,6 +1548,172 @@ export default function AdminLiveScoringPage() {
                 Confirm Toss & Start Match
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT TEAM NAMES MODAL */}
+      {editTeamsModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-panel w-full max-w-sm rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <span className="text-[10px] font-black uppercase text-lime-400 tracking-wider">
+                  TEAM SETTINGS
+                </span>
+                <h3 className="text-lg font-black text-white flex items-center gap-1.5">
+                  <Edit3 className="w-4 h-4 text-lime-400" /> Edit Team Names
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditTeamsModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400">
+              Change team names anytime mid-match or update typos:
+            </p>
+
+            <form onSubmit={handleSaveTeamNames} className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Team A Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editTeamAName}
+                  onChange={(e) => setEditTeamAName(e.target.value)}
+                  placeholder="e.g. Royal Strikers"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-lime-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">Team B Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editTeamBName}
+                  onChange={(e) => setEditTeamBName(e.target.value)}
+                  placeholder="e.g. Chennai Kings"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-lime-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={savingTeams}
+                className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-sm disabled:opacity-50"
+              >
+                {savingTeams ? 'Saving...' : 'Update Team Names 💾'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK MATCH MODAL (LAUNCH AT ANY TIME) */}
+      {quickMatchModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-panel w-full max-w-md rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <span className="text-[10px] font-black uppercase text-lime-400 tracking-wider">
+                  DIRECT MATCH ENTRY
+                </span>
+                <h3 className="text-lg font-black text-white flex items-center gap-1.5">
+                  <Flame className="w-5 h-5 text-amber-400" /> Start Quick Match
+                </h3>
+              </div>
+              <button
+                onClick={() => setQuickMatchModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400">
+              Directly enter team names and start live scoring without waiting for online registrations:
+            </p>
+
+            <form onSubmit={handleCreateQuickMatch} className="space-y-3">
+              {tournaments.length > 1 && (
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Tournament</label>
+                  <select
+                    value={quickMatchTournamentId}
+                    onChange={(e) => setQuickMatchTournamentId(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-lime-500"
+                  >
+                    {tournaments.map((t) => (
+                      <option key={t._id} value={t._id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-lime-400 block mb-1">Team A Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={quickTeamAName}
+                    onChange={(e) => setQuickTeamAName(e.target.value)}
+                    placeholder="e.g. Royal Strikers"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-lime-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-lime-400 block mb-1">Team B Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={quickTeamBName}
+                    onChange={(e) => setQuickTeamBName(e.target.value)}
+                    placeholder="e.g. Chennai Kings"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-lime-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Round / Title</label>
+                  <input
+                    type="text"
+                    value={quickRoundName}
+                    onChange={(e) => setQuickRoundName(e.target.value)}
+                    placeholder="Match 1 / Round 1"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-medium focus:outline-none focus:border-lime-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Venue / Pitch</label>
+                  <input
+                    type="text"
+                    value={quickVenue}
+                    onChange={(e) => setQuickVenue(e.target.value)}
+                    placeholder="Pitch 1"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-medium focus:outline-none focus:border-lime-500"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={creatingQuickMatch}
+                className="w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-lg shadow-lime-500/20 disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+              >
+                <Flame className="w-4 h-4 text-slate-950" />
+                {creatingQuickMatch ? 'Creating Match...' : 'Start Live Scoring 🏏'}
+              </button>
+            </form>
           </div>
         </div>
       )}

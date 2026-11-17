@@ -7,6 +7,39 @@ import BallDelivery from '../../models/BallDelivery.js';
 import { authenticateAdmin } from '../../lib/auth.js';
 import { generateKnockoutTree, linkKnockoutMatches } from '../../lib/bracket.js';
 
+async function resolveTeam(tournamentId, teamId, customName, defaultCaptain = 'Captain') {
+  if (teamId) {
+    try {
+      const doc = await Team.findById(teamId);
+      if (doc) return doc;
+    } catch (_) {}
+  }
+
+  if (!customName || typeof customName !== 'string' || customName.trim() === '' || customName.trim() === 'TBD') {
+    return null;
+  }
+
+  const trimmed = customName.trim();
+  const normalizedName = trimmed.toLowerCase();
+
+  // Find if a team already exists with this name in this tournament
+  let teamDoc = await Team.findOne({ tournament: tournamentId, normalizedName });
+  if (!teamDoc) {
+    const regId = '7B-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+    teamDoc = await Team.create({
+      tournament: tournamentId,
+      name: trimmed,
+      normalizedName,
+      captainName: `${trimmed} ${defaultCaptain}`,
+      captainPhone: '0000000000',
+      secondaryPhone: '0000000000',
+      registrationId: regId,
+      status: 'CONFIRMED',
+    });
+  }
+  return teamDoc;
+}
+
 export async function handleMatches(req, res) {
   await connectToDatabase();
 
@@ -30,7 +63,7 @@ export async function handleMatches(req, res) {
     }
   }
 
-  // POST: Manually create a single match fixture
+  // POST: Manually create a single match fixture (Supports direct team names without pre-registration!)
   if (req.method === 'POST') {
     try {
       const adminUser = await authenticateAdmin(req, res);
@@ -39,9 +72,11 @@ export async function handleMatches(req, res) {
       const {
         tournamentId,
         round = 1,
-        roundName = 'Round 1',
+        roundName,
         teamA,
         teamB,
+        teamAName,
+        teamBName,
         venue,
         scheduledAt,
       } = req.body || {};
@@ -55,23 +90,24 @@ export async function handleMatches(req, res) {
         return res.status(404).json({ success: false, message: 'Tournament not found' });
       }
 
-      let teamADoc = null;
-      let teamBDoc = null;
-      if (teamA) teamADoc = await Team.findById(teamA);
-      if (teamB) teamBDoc = await Team.findById(teamB);
+      const teamADoc = await resolveTeam(tournament._id, teamA, teamAName);
+      const teamBDoc = await resolveTeam(tournament._id, teamB, teamBName);
 
       const count = await Match.countDocuments({ tournament: tournament._id });
       const matchNumber = count + 1;
+
+      const finalTeamAName = teamADoc?.name || teamAName?.trim() || 'Team A';
+      const finalTeamBName = teamBDoc?.name || teamBName?.trim() || 'Team B';
 
       const match = await Match.create({
         tournament: tournament._id,
         matchNumber,
         round: Number(round),
-        roundName,
+        roundName: roundName || `Match ${matchNumber}`,
         teamA: teamADoc?._id || null,
-        teamAName: teamADoc?.name || 'TBD',
+        teamAName: finalTeamAName,
         teamB: teamBDoc?._id || null,
-        teamBName: teamBDoc?.name || 'TBD',
+        teamBName: finalTeamBName,
         venue: venue || tournament.venue || 'Main Pitch',
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
         status: 'UPCOMING',
@@ -153,28 +189,26 @@ export async function handleMatchDetail(req, res, id) {
       if (roundName !== undefined) match.roundName = roundName;
 
       // Handle Manual Team Assignment
-      if (teamA !== undefined) {
-        match.teamA = teamA || null;
-        if (teamA) {
-          const tADoc = await Team.findById(teamA);
-          match.teamAName = tADoc ? tADoc.name : teamAName || 'TBD';
-        } else {
-          match.teamAName = teamAName || 'TBD';
+      if (teamA !== undefined || teamAName !== undefined) {
+        if (teamA || (teamAName && teamAName.trim())) {
+          const tADoc = await resolveTeam(match.tournament, teamA, teamAName);
+          match.teamA = tADoc?._id || (teamA || null);
+          match.teamAName = tADoc?.name || (teamAName ? teamAName.trim() : match.teamAName);
+        } else if (teamA === null || teamAName === '') {
+          match.teamA = null;
+          match.teamAName = 'TBD';
         }
-      } else if (teamAName !== undefined) {
-        match.teamAName = teamAName;
       }
 
-      if (teamB !== undefined) {
-        match.teamB = teamB || null;
-        if (teamB) {
-          const tBDoc = await Team.findById(teamB);
-          match.teamBName = tBDoc ? tBDoc.name : teamBName || 'TBD';
-        } else {
-          match.teamBName = teamBName || 'TBD';
+      if (teamB !== undefined || teamBName !== undefined) {
+        if (teamB || (teamBName && teamBName.trim())) {
+          const tBDoc = await resolveTeam(match.tournament, teamB, teamBName);
+          match.teamB = tBDoc?._id || (teamB || null);
+          match.teamBName = tBDoc?.name || (teamBName ? teamBName.trim() : match.teamBName);
+        } else if (teamB === null || teamBName === '') {
+          match.teamB = null;
+          match.teamBName = 'TBD';
         }
-      } else if (teamBName !== undefined) {
-        match.teamBName = teamBName;
       }
 
       await match.save();
