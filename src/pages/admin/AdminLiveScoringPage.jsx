@@ -53,6 +53,8 @@ export default function AdminLiveScoringPage() {
   const [savingTeams, setSavingTeams] = useState(false);
 
   // Modals
+  const [deleteActiveMatchOpen, setDeleteActiveMatchOpen] = useState(false);
+  const [deletingActiveMatch, setDeletingActiveMatch] = useState(false);
   const [tossModalOpen, setTossModalOpen] = useState(false);
   const [tossWonBy, setTossWonBy] = useState('');
   const [tossChoice, setTossChoice] = useState('BAT');
@@ -246,6 +248,32 @@ export default function AdminLiveScoringPage() {
       alert(err.message || 'Failed to update team names');
     } finally {
       setSavingTeams(false);
+    }
+  };
+
+  // Handle Active Match Deletion
+  const handleDeleteActiveMatch = async () => {
+    if (!matchData?._id) return;
+    setDeletingActiveMatch(true);
+    try {
+      const res = await matchService.delete(matchData._id);
+      if (res.success) {
+        const remaining = matches.filter((m) => m._id !== matchData._id);
+        setMatches(remaining);
+        setDeleteActiveMatchOpen(false);
+        if (remaining.length > 0) {
+          setSelectedMatchId(remaining[0]._id);
+        } else {
+          setSelectedMatchId('');
+          setMatchData(null);
+          setDeliveries([]);
+        }
+        setAlertMsg(`Match #${matchData.matchNumber} deleted successfully 🗑️`);
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to delete match');
+    } finally {
+      setDeletingActiveMatch(false);
     }
   };
 
@@ -785,6 +813,14 @@ export default function AdminLiveScoringPage() {
           >
             <Trophy className="w-3.5 h-3.5 text-lime-400" /> All
           </Link>
+
+          <button
+            onClick={() => setDeleteActiveMatchOpen(true)}
+            title="Delete this match fixture"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-red-950/40 hover:bg-red-600/80 text-red-400 hover:text-white text-[11px] font-bold transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
 
           {!matchData.toss?.wonBy && (
             <button
@@ -1920,6 +1956,65 @@ export default function AdminLiveScoringPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE ACTIVE MATCH CONFIRMATION MODAL */}
+      {deleteActiveMatchOpen && matchData && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDeleteActiveMatchOpen(false);
+          }}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
+          <div className="glass-panel w-full max-w-md rounded-3xl border border-red-500/40 p-6 space-y-5 bg-slate-950 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center">
+                  <Trash2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Delete This Match?</h3>
+                  <p className="text-[11px] text-slate-400">Match #{matchData.matchNumber} • {matchData.roundName}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDeleteActiveMatchOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 space-y-2 text-xs">
+              <div className="flex items-center justify-between font-bold text-sm text-white">
+                <span>{matchData.teamAName}</span>
+                <span className="text-lime-400 font-mono text-xs">VS</span>
+                <span>{matchData.teamBName}</span>
+              </div>
+              <p className="text-[11px] text-red-400/90 pt-1 border-t border-slate-800/80">
+                ⚠️ Warning: Deleting this match fixture will permanently delete all {deliveries.length} ball-by-ball deliveries and score history recorded for it.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteActiveMatchOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteActiveMatch}
+                disabled={deletingActiveMatch}
+                className="px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-lg shadow-red-600/30"
+              >
+                {deletingActiveMatch ? 'Deleting...' : 'Yes, Delete Match'}
+              </button>
+            </div>
           </div>
         </div>
       )}

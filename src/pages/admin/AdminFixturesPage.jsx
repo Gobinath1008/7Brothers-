@@ -24,6 +24,7 @@ import {
   SlidersHorizontal,
   Users,
   Save,
+  Trash2,
 } from 'lucide-react';
 
 export default function AdminFixturesPage() {
@@ -70,6 +71,14 @@ export default function AdminFixturesPage() {
     scheduledAt: '',
   });
   const [creatingMatch, setCreatingMatch] = useState(false);
+
+  // Delete Match Modal State
+  const [deleteMatchTarget, setDeleteMatchTarget] = useState(null);
+  const [deletingMatch, setDeletingMatch] = useState(false);
+
+  // Clear All Fixtures Modal State
+  const [clearAllConfirmOpen, setClearAllConfirmOpen] = useState(false);
+  const [clearingAll, setClearingAll] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -301,6 +310,42 @@ export default function AdminFixturesPage() {
     }
   };
 
+  // Handle Single Match Fixture Deletion
+  const handleDeleteMatch = async () => {
+    if (!deleteMatchTarget) return;
+    setDeletingMatch(true);
+    try {
+      const res = await matchService.delete(deleteMatchTarget._id);
+      if (res.success) {
+        setMatches((prev) => prev.filter((m) => m._id !== deleteMatchTarget._id));
+        setAlertMsg(`Match #${deleteMatchTarget.matchNumber} (${deleteMatchTarget.teamA?.name || deleteMatchTarget.teamAName} vs ${deleteMatchTarget.teamB?.name || deleteMatchTarget.teamBName}) deleted successfully 🗑️`);
+        setDeleteMatchTarget(null);
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to delete match fixture');
+    } finally {
+      setDeletingMatch(false);
+    }
+  };
+
+  // Handle Clear All Fixtures for Selected Tournament
+  const handleClearAllFixtures = async () => {
+    if (!selectedTournamentId) return;
+    setClearingAll(true);
+    try {
+      const res = await matchService.deleteAll(selectedTournamentId);
+      if (res.success) {
+        setMatches([]);
+        setAlertMsg('All fixtures cleared for this tournament 🗑️');
+        setClearAllConfirmOpen(false);
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to clear fixtures');
+    } finally {
+      setClearingAll(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-12">
       {/* Header & Export Toolbar */}
@@ -376,6 +421,18 @@ export default function AdminFixturesPage() {
             <Printer className="w-4 h-4" />
             <span className="hidden sm:inline">Print</span>
           </button>
+
+          {/* Delete All Fixtures Button */}
+          {matches.length > 0 && (
+            <button
+              onClick={() => setClearAllConfirmOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-red-400 bg-red-950/30 border border-red-500/30 hover:bg-red-600/80 hover:text-white transition-colors cursor-pointer"
+              title="Delete all match fixtures in this tournament"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete All</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -520,7 +577,7 @@ export default function AdminFixturesPage() {
 
                       <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
                         <span className="truncate max-w-[140px]">{m.venue || currentTournament?.venue}</span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => handleOpenEditMatch(m)}
                             className="px-2.5 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white font-bold text-xs flex items-center gap-1"
@@ -539,6 +596,13 @@ export default function AdminFixturesPage() {
                             <Radio className="w-3.5 h-3.5" />
                             {isLive ? 'Live' : 'Scorer'}
                           </Link>
+                          <button
+                            onClick={() => setDeleteMatchTarget(m)}
+                            className="px-2 py-1.5 rounded-xl bg-red-950/40 text-red-400 hover:text-white hover:bg-red-600 font-bold text-xs flex items-center gap-1 transition-colors"
+                            title="Delete this match fixture"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -629,6 +693,15 @@ export default function AdminFixturesPage() {
                                 <Radio className="w-3.5 h-3.5" />
                                 {isLive ? 'Score Now' : 'Scorer'}
                               </Link>
+
+                              {/* Delete Match Button */}
+                              <button
+                                onClick={() => setDeleteMatchTarget(m)}
+                                className="px-2 py-1.5 rounded-lg bg-red-950/40 text-red-400 hover:text-white hover:bg-red-600 text-[11px] font-bold flex items-center gap-1 transition-colors"
+                                title="Delete this match fixture"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" /> Delete
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -899,22 +972,36 @@ export default function AdminFixturesPage() {
                 </select>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+              <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setEditingMatch(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white"
+                  onClick={() => {
+                    const target = editingMatch;
+                    setEditingMatch(null);
+                    setDeleteMatchTarget(target);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-red-400 bg-red-950/40 hover:bg-red-600/30 border border-red-500/30 transition-colors"
                 >
-                  Cancel
+                  <Trash2 className="w-3.5 h-3.5" /> Delete Fixture
                 </button>
-                <button
-                  type="submit"
-                  disabled={savingMatch}
-                  className="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  <Save className="w-4 h-4" />
-                  {savingMatch ? 'Saving...' : 'Update Match Pairing'}
-                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingMatch(null)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingMatch}
+                    className="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <Save className="w-4 h-4" />
+                    {savingMatch ? 'Saving...' : 'Update Match Pairing'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -1023,6 +1110,122 @@ export default function AdminFixturesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: DELETE SINGLE MATCH CONFIRMATION */}
+      {deleteMatchTarget && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDeleteMatchTarget(null);
+          }}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
+          <div className="glass-panel w-full max-w-md rounded-3xl border border-red-500/40 p-6 space-y-5 bg-slate-950 shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center">
+                  <Trash2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Delete Match Fixture?</h3>
+                  <p className="text-[11px] text-slate-400">Match #{deleteMatchTarget.matchNumber} • {deleteMatchTarget.roundName}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDeleteMatchTarget(null)}
+                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Match Summary Box */}
+            <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 space-y-2 text-xs">
+              <div className="flex items-center justify-between font-bold text-sm text-white">
+                <span>{deleteMatchTarget.teamA?.name || deleteMatchTarget.teamAName || 'Team A'}</span>
+                <span className="text-lime-400 font-mono text-xs">VS</span>
+                <span>{deleteMatchTarget.teamB?.name || deleteMatchTarget.teamBName || 'Team B'}</span>
+              </div>
+              <p className="text-[11px] text-red-400/90 pt-1 border-t border-slate-800/80">
+                ⚠️ Warning: Deleting this fixture will permanently remove the match and all its recorded ball-by-ball deliveries.
+              </p>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteMatchTarget(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteMatch}
+                disabled={deletingMatch}
+                className="px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-lg shadow-red-600/30"
+              >
+                {deletingMatch ? 'Deleting...' : 'Yes, Delete Fixture'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: CLEAR ALL FIXTURES CONFIRMATION */}
+      {clearAllConfirmOpen && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setClearAllConfirmOpen(false);
+          }}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
+          <div className="glass-panel w-full max-w-md rounded-3xl border border-red-500/40 p-6 space-y-5 bg-slate-950 shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center">
+                  <Trash2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Delete All Fixtures?</h3>
+                  <p className="text-[11px] text-slate-400">{currentTournament?.name || 'Selected Tournament'}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setClearAllConfirmOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Are you sure you want to delete all <strong className="text-white">{matches.length}</strong> match fixtures and their ball deliveries in this tournament? Teams and registrations will be preserved.
+            </p>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setClearAllConfirmOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleClearAllFixtures}
+                disabled={clearingAll}
+                className="px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-lg shadow-red-600/30"
+              >
+                {clearingAll ? 'Clearing...' : 'Yes, Delete All Fixtures'}
+              </button>
+            </div>
           </div>
         </div>
       )}

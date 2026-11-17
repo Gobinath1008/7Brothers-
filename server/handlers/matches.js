@@ -150,6 +150,47 @@ export async function handleMatches(req, res) {
     }
   }
 
+  // DELETE: Bulk delete / clear fixtures for a tournament
+  if (req.method === 'DELETE') {
+    try {
+      const adminUser = await authenticateAdmin(req, res);
+      if (!adminUser) return;
+
+      const { tournamentId, matchId } = req.query || {};
+
+      if (matchId) {
+        await BallDelivery.deleteMany({ match: matchId });
+        const deletedMatch = await Match.findByIdAndDelete(matchId);
+        return res.status(200).json({
+          success: true,
+          message: 'Match fixture deleted successfully 🗑️',
+          deletedMatch,
+        });
+      }
+
+      if (tournamentId) {
+        const matches = await Match.find({ tournament: tournamentId }).select('_id');
+        const matchIds = matches.map((m) => m._id);
+        const delBalls = await BallDelivery.deleteMany({ match: { $in: matchIds } });
+        const delMatches = await Match.deleteMany({ tournament: tournamentId });
+
+        await Tournament.findByIdAndUpdate(tournamentId, {
+          $unset: { champion: 1, runnerUp: 1 },
+          $set: { fixturesGenerated: false },
+        });
+
+        return res.status(200).json({
+          success: true,
+          message: `Cleared ${delMatches.deletedCount} match fixtures and ${delBalls.deletedCount} deliveries for this tournament.`,
+        });
+      }
+
+      return res.status(400).json({ success: false, message: 'Tournament ID or Match ID is required' });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message || 'Error deleting matches' });
+    }
+  }
+
   return res.status(405).json({ success: false, message: 'Method not allowed' });
 }
 
@@ -251,6 +292,37 @@ export async function handleMatchDetail(req, res, id) {
       });
     } catch (error) {
       return res.status(500).json({ success: false, message: error.message || 'Error updating match' });
+    }
+  }
+
+  // DELETE: Delete a single match fixture and its ball deliveries
+  if (req.method === 'DELETE') {
+    try {
+      const adminUser = await authenticateAdmin(req, res);
+      if (!adminUser) return;
+
+      const match = await Match.findById(id);
+      if (!match) {
+        return res.status(404).json({ success: false, message: 'Match not found' });
+      }
+
+      // Delete all deliveries associated with this match
+      const delBalls = await BallDelivery.deleteMany({ match: id });
+
+      // Clean up winner/runnerUp if this match determined them
+      await Tournament.updateOne(
+        { _id: match.tournament, $or: [{ champion: match.winner }, { runnerUp: match.loser }] },
+        { $unset: { champion: 1, runnerUp: 1 } }
+      );
+
+      await Match.findByIdAndDelete(id);
+
+      return res.status(200).json({
+        success: true,
+        message: `Match #${match.matchNumber} (${match.teamAName} vs ${match.teamBName}) and ${delBalls.deletedCount} deliveries deleted successfully 🗑️`,
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message || 'Error deleting match fixture' });
     }
   }
 

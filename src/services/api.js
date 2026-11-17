@@ -96,6 +96,8 @@ export const matchService = {
   getById: (id) => apiRequest(`/api/matches/${id}`),
   createMatch: (data) => apiRequest('/api/matches', { method: 'POST', body: data }),
   update: (id, data) => apiRequest(`/api/matches/${id}`, { method: 'PUT', body: data }),
+  delete: (id) => apiRequest(`/api/matches/${id}`, { method: 'DELETE' }),
+  deleteAll: (tournamentId) => apiRequest(`/api/matches?tournamentId=${tournamentId}`, { method: 'DELETE' }),
   generateFixtures: (tournamentId, force = false, mode = 'AUTOMATIC', customPairs = []) =>
     apiRequest('/api/matches/generate', { method: 'POST', body: { tournamentId, force, mode, customPairs } }),
 };

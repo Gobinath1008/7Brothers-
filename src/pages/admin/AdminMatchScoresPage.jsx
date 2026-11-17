@@ -19,6 +19,7 @@ import {
   X,
   ChevronRight,
   RotateCcw,
+  Trash2,
 } from 'lucide-react';
 
 export default function AdminMatchScoresPage() {
@@ -33,6 +34,27 @@ export default function AdminMatchScoresPage() {
   const [scorecardModalMatch, setScorecardModalMatch] = useState(null);
   const [modalDetails, setModalDetails] = useState(null);
   const [modalLoading, setModalLoading] = useState(false);
+
+  // Delete match modal state
+  const [deleteTargetMatch, setDeleteTargetMatch] = useState(null);
+  const [deletingMatch, setDeletingMatch] = useState(false);
+
+  // Handle Match Deletion
+  const handleDeleteMatch = async () => {
+    if (!deleteTargetMatch) return;
+    setDeletingMatch(true);
+    try {
+      const res = await matchService.delete(deleteTargetMatch._id);
+      if (res.success) {
+        setMatches((prev) => prev.filter((m) => m._id !== deleteTargetMatch._id));
+        setDeleteTargetMatch(null);
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to delete match');
+    } finally {
+      setDeletingMatch(false);
+    }
+  };
 
   // Load matches & tournaments
   const loadData = async () => {
@@ -462,6 +484,14 @@ export default function AdminMatchScoresPage() {
                     <Sliders className="w-3.5 h-3.5" />
                     {isComp ? 'Edit Match Score' : isLive ? 'Score Live Now' : 'Open Scorer'}
                   </Link>
+
+                  <button
+                    onClick={() => setDeleteTargetMatch(m)}
+                    className="p-2 rounded-xl bg-red-950/40 hover:bg-red-600/80 border border-red-500/30 text-red-400 hover:text-white transition-colors"
+                    title="Delete this match fixture"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
             );
@@ -622,6 +652,65 @@ export default function AdminMatchScoresPage() {
                 </div>
               </div>
             ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* DELETE MATCH CONFIRMATION MODAL */}
+      {deleteTargetMatch && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDeleteTargetMatch(null);
+          }}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
+          <div className="glass-panel w-full max-w-md rounded-3xl border border-red-500/40 p-6 space-y-5 bg-slate-950 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-red-500/20 text-red-400 flex items-center justify-center">
+                  <Trash2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">Delete Match Fixture?</h3>
+                  <p className="text-[11px] text-slate-400">Match #{deleteTargetMatch.matchNumber} • {deleteTargetMatch.roundName}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDeleteTargetMatch(null)}
+                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 space-y-2 text-xs">
+              <div className="flex items-center justify-between font-bold text-sm text-white">
+                <span>{deleteTargetMatch.teamA?.name || deleteTargetMatch.teamAName || 'Team A'}</span>
+                <span className="text-lime-400 font-mono text-xs">VS</span>
+                <span>{deleteTargetMatch.teamB?.name || deleteTargetMatch.teamBName || 'Team B'}</span>
+              </div>
+              <p className="text-[11px] text-red-400/90 pt-1 border-t border-slate-800/80">
+                ⚠️ Warning: Deleting this match fixture will permanently remove the score records and all ball-by-ball deliveries.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTargetMatch(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteMatch}
+                disabled={deletingMatch}
+                className="px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-lg shadow-red-600/30"
+              >
+                {deletingMatch ? 'Deleting...' : 'Yes, Delete Fixture'}
+              </button>
+            </div>
           </div>
         </div>
       )}
