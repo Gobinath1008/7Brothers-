@@ -41,6 +41,7 @@ export default function AdminLiveScoringPage() {
   const [quickMatchTournamentId, setQuickMatchTournamentId] = useState('');
   const [quickTeamAName, setQuickTeamAName] = useState('');
   const [quickTeamBName, setQuickTeamBName] = useState('');
+  const [quickBattingFirst, setQuickBattingFirst] = useState('teamA');
   const [quickRoundName, setQuickRoundName] = useState('League Match');
   const [quickVenue, setQuickVenue] = useState('Pitch 1');
   const [creatingQuickMatch, setCreatingQuickMatch] = useState(false);
@@ -161,20 +162,55 @@ export default function AdminLiveScoringPage() {
 
     setCreatingQuickMatch(true);
     try {
+      // 1. Create match with resolved teams
       const res = await matchService.createMatch({
         tournamentId: targetTournamentId,
         teamAName: quickTeamAName.trim(),
         teamBName: quickTeamBName.trim(),
-        roundName: quickRoundName.trim() || 'Match',
+        roundName: quickRoundName.trim() || 'Match 1',
         venue: quickVenue.trim() || 'Pitch 1',
       });
+
       if (res.success && res.match) {
+        const createdMatch = res.match;
+
+        // 2. Automatically record Toss & mark match LIVE so live scoring opens immediately!
+        const tossWinnerTeam = quickBattingFirst === 'teamB'
+          ? (createdMatch.teamB?._id || createdMatch.teamB || 'teamB')
+          : (createdMatch.teamA?._id || createdMatch.teamA || 'teamA');
+
+        try {
+          await scoringService.updateStatus({
+            matchId: createdMatch._id,
+            action: 'TOSS',
+            tossWonBy: tossWinnerTeam,
+            tossChoice: 'BAT',
+          });
+        } catch (tossErr) {
+          console.warn('Auto toss setting warning:', tossErr);
+        }
+
+        // 3. Fetch full populated match details
+        const detailRes = await matchService.getById(createdMatch._id);
+        const activeMatch = (detailRes.success && detailRes.match) ? detailRes.match : createdMatch;
+
         setQuickMatchModalOpen(false);
         setQuickTeamAName('');
         setQuickTeamBName('');
-        setMatches((prev) => [res.match, ...prev]);
-        setSelectedMatchId(res.match._id);
-        setAlertMsg(`Match ${res.match.teamAName} vs ${res.match.teamBName} created! 🏏`);
+        setMatches((prev) => [activeMatch, ...prev.filter((m) => m._id !== activeMatch._id)]);
+        setSelectedMatchId(activeMatch._id);
+        setMatchData(activeMatch);
+        setDeliveries(detailRes.allDeliveries || detailRes.recentDeliveries || []);
+        setTossModalOpen(false);
+
+        const currentInn = activeMatch.currentInnings === 2 ? activeMatch.innings2 : activeMatch.innings1;
+        setQuickRuns(currentInn?.runs || 0);
+        setQuickWickets(currentInn?.wickets || 0);
+        setQuickOvers(currentInn?.overs || 0);
+        setQuickBalls(currentInn?.balls || 0);
+        setQuickTarget(activeMatch.innings2?.target || 0);
+
+        setAlertMsg(`Match ${activeMatch.teamAName} vs ${activeMatch.teamBName} is LIVE! 🏏 Start entering deliveries below.`);
       }
     } catch (err) {
       alert(err.message || 'Failed to create quick match');
@@ -252,23 +288,33 @@ export default function AdminLiveScoringPage() {
             </div>
           </div>
 
-          <form onSubmit={handleCreateQuickMatch} className="space-y-3">
-            {tournaments.length > 1 && (
-              <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">Tournament</label>
+          <form onSubmit={handleCreateQuickMatch} className="space-y-3.5">
+            {/* Always visible Tournament Selector */}
+            <div>
+              <label className="text-xs font-bold text-lime-400 block mb-1 flex items-center justify-between">
+                <span>Select Tournament *</span>
+                <span className="text-[10px] text-slate-400 font-normal">Choose target tournament</span>
+              </label>
+              {tournaments.length === 0 ? (
+                <div className="text-xs text-amber-400 bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/30">
+                  No tournament found. Please create one in <Link to="/admin/tournaments" className="underline font-bold">Tournaments</Link>.
+                </div>
+              ) : (
                 <select
                   value={quickMatchTournamentId}
                   onChange={(e) => setQuickMatchTournamentId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white font-bold focus:outline-none focus:border-lime-500"
                 >
                   {tournaments.map((t) => (
-                    <option key={t._id} value={t._id}>{t.name}</option>
+                    <option key={t._id} value={t._id}>
+                      🏆 {t.name} ({t.oversPerMatch} Overs • {t.venue})
+                    </option>
                   ))}
                 </select>
-              </div>
-            )}
+              )}
+            </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-bold text-lime-400 block mb-1">Team A Name *</label>
                 <input
@@ -293,6 +339,37 @@ export default function AdminLiveScoringPage() {
               </div>
             </div>
 
+            {/* Who Bats First Toggle */}
+            <div>
+              <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                Who Bats First? (Toss Winner) *
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickBattingFirst('teamA')}
+                  className={`py-2 px-3 rounded-xl text-xs uppercase transition-all flex items-center justify-center gap-1.5 ${
+                    quickBattingFirst === 'teamA'
+                      ? 'bg-lime-500 text-slate-950 shadow-md font-black'
+                      : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white font-bold'
+                  }`}
+                >
+                  🏏 {quickTeamAName.trim() || 'Team A'} Bats
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickBattingFirst('teamB')}
+                  className={`py-2 px-3 rounded-xl text-xs uppercase transition-all flex items-center justify-center gap-1.5 ${
+                    quickBattingFirst === 'teamB'
+                      ? 'bg-lime-500 text-slate-950 shadow-md font-black'
+                      : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white font-bold'
+                  }`}
+                >
+                  🏏 {quickTeamBName.trim() || 'Team B'} Bats
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-bold text-slate-400 block mb-1">Round / Title</label>
@@ -301,7 +378,7 @@ export default function AdminLiveScoringPage() {
                   value={quickRoundName}
                   onChange={(e) => setQuickRoundName(e.target.value)}
                   placeholder="Match 1"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-medium"
                 />
               </div>
               <div>
@@ -311,18 +388,18 @@ export default function AdminLiveScoringPage() {
                   value={quickVenue}
                   onChange={(e) => setQuickVenue(e.target.value)}
                   placeholder="Pitch 1"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-medium"
                 />
               </div>
             </div>
 
             <button
               type="submit"
-              disabled={creatingQuickMatch}
+              disabled={creatingQuickMatch || tournaments.length === 0}
               className="w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-lg shadow-lime-500/20 disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
             >
               <Flame className="w-4 h-4 text-slate-950" />
-              {creatingQuickMatch ? 'Creating Match...' : 'Start Live Scoring 🏏'}
+              {creatingQuickMatch ? 'Creating Match & Opening Console...' : 'Start Live Scoring 🏏'}
             </button>
           </form>
         </div>
@@ -1720,10 +1797,18 @@ export default function AdminLiveScoringPage() {
               Directly enter team names and start live scoring without waiting for online registrations:
             </p>
 
-            <form onSubmit={handleCreateQuickMatch} className="space-y-3">
-              {tournaments.length > 1 && (
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">Tournament</label>
+            <form onSubmit={handleCreateQuickMatch} className="space-y-3.5">
+              {/* Always visible Tournament Selector */}
+              <div>
+                <label className="text-xs font-bold text-lime-400 block mb-1 flex items-center justify-between">
+                  <span>Select Tournament *</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Choose target tournament</span>
+                </label>
+                {tournaments.length === 0 ? (
+                  <div className="text-xs text-amber-400 bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/30">
+                    No tournament found. Please create one in <Link to="/admin/tournaments" className="underline font-bold">Tournaments</Link>.
+                  </div>
+                ) : (
                   <select
                     value={quickMatchTournamentId}
                     onChange={(e) => setQuickMatchTournamentId(e.target.value)}
@@ -1731,12 +1816,12 @@ export default function AdminLiveScoringPage() {
                   >
                     {tournaments.map((t) => (
                       <option key={t._id} value={t._id}>
-                        {t.name}
+                        🏆 {t.name} ({t.oversPerMatch} Overs • {t.venue})
                       </option>
                     ))}
                   </select>
-                </div>
-              )}
+                )}
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1760,6 +1845,37 @@ export default function AdminLiveScoringPage() {
                     placeholder="e.g. Chennai Kings"
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-lime-500"
                   />
+                </div>
+              </div>
+
+              {/* Who Bats First Toggle */}
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                  Who Bats First? (Toss Winner) *
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQuickBattingFirst('teamA')}
+                    className={`py-2 px-3 rounded-xl text-xs uppercase transition-all flex items-center justify-center gap-1.5 ${
+                      quickBattingFirst === 'teamA'
+                        ? 'bg-lime-500 text-slate-950 shadow-md font-black'
+                        : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white font-bold'
+                    }`}
+                  >
+                    🏏 {quickTeamAName.trim() || 'Team A'} Bats
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuickBattingFirst('teamB')}
+                    className={`py-2 px-3 rounded-xl text-xs uppercase transition-all flex items-center justify-center gap-1.5 ${
+                      quickBattingFirst === 'teamB'
+                        ? 'bg-lime-500 text-slate-950 shadow-md font-black'
+                        : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white font-bold'
+                    }`}
+                  >
+                    🏏 {quickTeamBName.trim() || 'Team B'} Bats
+                  </button>
                 </div>
               </div>
 
