@@ -5,6 +5,7 @@ import { handleTeamsConfirm } from '../server/handlers/teams.js';
 import { handleMatches, handleMatchDetail, handleMatchesGenerate } from '../server/handlers/matches.js';
 import { handleScoreBall, handleScoreStatus, handleScoreUndo, handleEditBall } from '../server/handlers/scoring.js';
 import { handleExportsData } from '../server/handlers/exports.js';
+import { handleAdminResetData } from '../server/handlers/admin.js';
 
 async function parseBody(req) {
   if (req.body && typeof req.body === 'object') {
@@ -138,6 +139,11 @@ export default async function handler(req, res) {
     // 7. Exports: /api/exports/data
     if (parts[0] === 'exports') {
       if (parts[1] === 'data') return await handleExportsData(req, res);
+    }
+
+    // 8. Admin Data Reset: /api/admin/reset-data
+    if (parts[0] === 'admin') {
+      if (parts[1] === 'reset-data') return await handleAdminResetData(req, res);
     }
 
     // Root /api health check

@@ -147,6 +147,10 @@ export default function AdminLayout() {
             <LogOut className="w-4 h-4" />
             Logout Session
           </button>
+
+          <div className="pt-2 text-center text-[10px] text-slate-500">
+            Developed by <span className="text-lime-400 font-bold uppercase">GOBINATH S</span>
+          </div>
         </div>
       </aside>
 
@@ -155,6 +159,9 @@ export default function AdminLayout() {
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
           <Outlet />
         </main>
+        <footer className="py-3 px-6 text-center text-xs text-slate-500 border-t border-slate-900 bg-slate-950/80">
+          7Brothers Admin Console • Developed by <span className="text-lime-400 font-bold uppercase">GOBINATH S</span>
+        </footer>
       </div>
     </div>
   );

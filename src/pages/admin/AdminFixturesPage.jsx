@@ -644,7 +644,12 @@ export default function AdminFixturesPage() {
 
       {/* MODAL 1: MANUAL MATCHMAKER (Fix opening round teams manually) */}
       {matchmakerOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setMatchmakerOpen(false);
+          }}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+        >
           <div className="glass-panel w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative my-8">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
               <div>
@@ -756,7 +761,12 @@ export default function AdminFixturesPage() {
 
       {/* MODAL 2: EDIT SINGLE MATCH PAIRING / SCHEDULE */}
       {editingMatch && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditingMatch(null);
+          }}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+        >
           <div className="glass-panel w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative my-8">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
               <div>
@@ -913,7 +923,12 @@ export default function AdminFixturesPage() {
 
       {/* MODAL 3: ADD NEW MATCH FIXTURE (DIRECT ENTRY) */}
       {addMatchOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setAddMatchOpen(false);
+          }}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+        >
           <div className="glass-panel w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative my-8">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
               <div>

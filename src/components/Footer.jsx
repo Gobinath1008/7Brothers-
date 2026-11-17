@@ -68,8 +68,11 @@ export default function Footer() {
           <div>
             © {new Date().getFullYear()} 7Brothers Box Cricket League. All rights reserved.
           </div>
-          <div className="flex items-center gap-1">
-            Engineered with <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500 mx-0.5" /> for Box Cricket Champions
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400">Developed by</span>
+            <span className="text-lime-400 font-extrabold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-lime-500/10 border border-lime-500/30 text-[11px] shadow-sm">
+              GOBINATH S
+            </span>
           </div>
         </div>
       </div>

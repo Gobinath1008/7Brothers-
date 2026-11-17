@@ -115,3 +115,12 @@ export const exportService = {
   getData: (tournamentId, type = 'registrations') =>
     apiRequest(`/api/exports/data?tournamentId=${tournamentId}&type=${type}`),
 };
+
+// Admin Data Management API
+export const adminService = {
+  resetData: (action, tournamentId = null, deleteTournaments = false) =>
+    apiRequest('/api/admin/reset-data', {
+      method: 'POST',
+      body: { action, tournamentId, deleteTournaments },
+    }),
+};

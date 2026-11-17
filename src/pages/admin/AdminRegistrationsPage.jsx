@@ -405,7 +405,12 @@ export default function AdminRegistrationsPage() {
 
       {/* Team Details Modal with Squad List */}
       {selectedTeam && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedTeam(null);
+          }}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+        >
           <div className="glass-panel w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
               <div>

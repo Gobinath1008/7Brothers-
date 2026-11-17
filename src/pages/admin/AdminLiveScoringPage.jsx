@@ -1120,7 +1120,12 @@ export default function AdminLiveScoringPage() {
 
       {/* EDIT DELIVERY MODAL (FIX ACCIDENTAL INPUT MISTAKES) */}
       {editingBall && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditingBall(null);
+          }}
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+        >
           <div className="glass-panel w-full max-w-sm rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
@@ -1133,7 +1138,8 @@ export default function AdminLiveScoringPage() {
               </div>
               <button
                 onClick={() => setEditingBall(null)}
-                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center"
+                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+                title="Close modal"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1291,6 +1297,14 @@ export default function AdminLiveScoringPage() {
               >
                 <Trash2 className="w-3.5 h-3.5" /> Delete This Ball Entirely
               </button>
+
+              <button
+                type="button"
+                onClick={() => setEditingBall(null)}
+                className="w-full py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors"
+              >
+                Cancel / Close
+              </button>
             </div>
           </div>
         </div>
@@ -1298,7 +1312,12 @@ export default function AdminLiveScoringPage() {
 
       {/* QUICK SCORE MANUAL EDIT MODAL */}
       {quickScoreModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setQuickScoreModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+        >
           <div className="glass-panel w-full max-w-sm rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
@@ -1311,7 +1330,8 @@ export default function AdminLiveScoringPage() {
               </div>
               <button
                 onClick={() => setQuickScoreModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center"
+                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+                title="Close dialog"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1396,14 +1416,23 @@ export default function AdminLiveScoringPage() {
                 </div>
               )}
 
-              <button
-                type="button"
-                disabled={recording}
-                onClick={handleSaveQuickScore}
-                className="w-full py-3 mt-2 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-md active:scale-95"
-              >
-                Apply Score Correction ⚡
-              </button>
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  disabled={recording}
+                  onClick={handleSaveQuickScore}
+                  className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-md active:scale-95"
+                >
+                  Apply Score Correction ⚡
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickScoreModalOpen(false)}
+                  className="w-full py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors"
+                >
+                  Cancel / Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1411,7 +1440,12 @@ export default function AdminLiveScoringPage() {
 
       {/* OVER SUMMARY MODAL (TRIGGERED ON NEXT OVER OR BY TAPPING ANY OVER) */}
       {selectedOverModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedOverModal(null);
+          }}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+        >
           <div className="glass-panel w-full max-w-sm rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
@@ -1492,12 +1526,29 @@ export default function AdminLiveScoringPage() {
 
       {/* Toss Modal */}
       {tossModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setTossModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+        >
           <div className="glass-panel w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-3xl p-6 border border-slate-800 shadow-2xl">
-            <h3 className="text-base font-black text-white mb-1 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-lime-400" /> Match Toss Setup
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">Select who won the toss and their choice</p>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+              <div>
+                <h3 className="text-base font-black text-white flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-lime-400" /> Match Toss Setup
+                </h3>
+                <p className="text-[11px] text-slate-400">Select who won the toss & choice</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTossModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+                title="Close dialog"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
             <div className="space-y-4">
               <div>
@@ -1540,13 +1591,22 @@ export default function AdminLiveScoringPage() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleSaveToss}
-                className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-sm"
-              >
-                Confirm Toss & Start Match
-              </button>
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveToss}
+                  className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-sm"
+                >
+                  Confirm Toss & Start Match
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTossModalOpen(false)}
+                  className="w-full py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors"
+                >
+                  Cancel / Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1554,7 +1614,12 @@ export default function AdminLiveScoringPage() {
 
       {/* EDIT TEAM NAMES MODAL */}
       {editTeamsModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditTeamsModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+        >
           <div className="glass-panel w-full max-w-sm rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
@@ -1567,7 +1632,8 @@ export default function AdminLiveScoringPage() {
               </div>
               <button
                 onClick={() => setEditTeamsModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center"
+                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+                title="Close dialog"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1602,13 +1668,22 @@ export default function AdminLiveScoringPage() {
                 />
               </div>
 
-              <button
-                type="submit"
-                disabled={savingTeams}
-                className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-sm disabled:opacity-50"
-              >
-                {savingTeams ? 'Saving...' : 'Update Team Names 💾'}
-              </button>
+              <div className="space-y-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={savingTeams}
+                  className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-sm disabled:opacity-50"
+                >
+                  {savingTeams ? 'Saving...' : 'Update Team Names 💾'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditTeamsModalOpen(false)}
+                  className="w-full py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors"
+                >
+                  Cancel / Close
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -1616,7 +1691,12 @@ export default function AdminLiveScoringPage() {
 
       {/* QUICK MATCH MODAL (LAUNCH AT ANY TIME) */}
       {quickMatchModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setQuickMatchModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+        >
           <div className="glass-panel w-full max-w-md rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
@@ -1629,7 +1709,8 @@ export default function AdminLiveScoringPage() {
               </div>
               <button
                 onClick={() => setQuickMatchModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center"
+                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+                title="Close dialog"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1705,14 +1786,23 @@ export default function AdminLiveScoringPage() {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={creatingQuickMatch}
-                className="w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-lg shadow-lime-500/20 disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
-              >
-                <Flame className="w-4 h-4 text-slate-950" />
-                {creatingQuickMatch ? 'Creating Match...' : 'Start Live Scoring 🏏'}
-              </button>
+              <div className="space-y-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={creatingQuickMatch}
+                  className="w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 transition-colors shadow-lg shadow-lime-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Flame className="w-4 h-4 text-slate-950" />
+                  {creatingQuickMatch ? 'Creating Match...' : 'Start Live Scoring 🏏'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickMatchModalOpen(false)}
+                  className="w-full py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors"
+                >
+                  Cancel / Close
+                </button>
+              </div>
             </form>
           </div>
         </div>

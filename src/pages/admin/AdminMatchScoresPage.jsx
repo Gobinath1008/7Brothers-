@@ -471,7 +471,15 @@ export default function AdminMatchScoresPage() {
 
       {/* FULL MATCH SCORECARD INSPECTION MODAL */}
       {scorecardModalMatch && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setScorecardModalMatch(null);
+              setModalDetails(null);
+            }
+          }}
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+        >
           <div className="glass-panel w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-5 sm:p-6 border border-slate-800 shadow-2xl space-y-4">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -594,13 +602,23 @@ export default function AdminMatchScoresPage() {
                 )}
 
                 {/* Bottom link to scorer console */}
-                <div className="pt-2">
+                <div className="pt-2 space-y-2">
                   <Link
                     to={`/admin/scoring?match=${modalDetails.match._id}`}
                     className="w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-lime-500 text-slate-950 hover:bg-lime-400 flex items-center justify-center gap-2 transition-colors shadow-sm"
                   >
                     Open Scorer & Edit Controls <ChevronRight className="w-4 h-4" />
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScorecardModalMatch(null);
+                      setModalDetails(null);
+                    }}
+                    className="w-full py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors"
+                  >
+                    Close Scorecard
+                  </button>
                 </div>
               </div>
             ) : null}
